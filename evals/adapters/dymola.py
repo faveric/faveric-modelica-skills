@@ -12,7 +12,7 @@ not typed in. Configuration (.modelica-skills/config.yml):
 What it can and cannot establish:
   G1  translation of every verification.check_models entry and every simulated model; no equation-count parsing.
   G2  stays the static text result: translate_model returns no unit check.
-  G3, G4, G5, G6a  from verification.simulations entries (model, var, stop_time, max_abs / min / max / sign_change),
+  G3, G5, G6a  from verification.simulations entries (model, var, stop_time, max_abs / min / max / sign_change),
       judged on the min and max over time of the variable. A gate with no entry is skip; a trajectory that could
       not be read is skip, never pass.
 
@@ -24,7 +24,7 @@ from pathlib import Path
 from . import omc_cli
 
 SERVER = Path(__file__).resolve().parents[2] / "server" / "dymola_mcp.py"
-MODEL_GATES = ("G3", "G4", "G5", "G6a")
+MODEL_GATES = ("G3", "G5", "G6a")
 _server = None
 _version = None
 

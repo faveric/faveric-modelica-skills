@@ -442,15 +442,15 @@ def _evaluate_library_project(root, spec, static_g1, static_g2, static_g5):
     else:
         out["G2"] = ("pass", (static_g2[1] if static_g2 else "units ok") + "; omc --unitChecking passed")
 
-    # Evaluate G3, G4, G5, G6a from simulated CSV trajectories and reference cases
-    g3_msgs, g4_msgs, g5_msgs, g6a_msgs = [], [], [], []
-    g3_ok, g4_ok, g5_ok, g6a_ok = True, True, (static_g5[0] != "fail" if static_g5 else True), True
+    # Evaluate G3, G5, G6a from simulated CSV trajectories and reference cases
+    g3_msgs, g5_msgs, g6a_msgs = [], [], []
+    g3_ok, g5_ok, g6a_ok = True, (static_g5[0] != "fail" if static_g5 else True), True
     for sc in sim_checks:
         m = sc["model"]
         cname = f"{m}_res.csv"
         series = csv_data.get(cname)
         if not series:
-            g3_ok = g4_ok = g5_ok = g6a_ok = False
+            g3_ok = g5_ok = g6a_ok = False
             g3_msgs.append(f"missing {cname}")
             continue
         gate = sc.get("gate", "G3")
@@ -475,9 +475,6 @@ def _evaluate_library_project(root, spec, static_g1, static_g2, static_g5):
             if gate == "G3":
                 g3_ok = g3_ok and ok
                 g3_msgs.append(msg)
-            elif gate == "G4":
-                g4_ok = g4_ok and ok
-                g4_msgs.append(msg)
             elif gate == "G5":
                 g5_ok = g5_ok and ok
                 g5_msgs.append(msg)
@@ -489,9 +486,6 @@ def _evaluate_library_project(root, spec, static_g1, static_g2, static_g5):
             if gate == "G3":
                 g3_ok = False
                 g3_msgs.append(msg)
-            elif gate == "G4":
-                g4_ok = False
-                g4_msgs.append(msg)
             elif gate == "G5":
                 g5_ok = False
                 g5_msgs.append(msg)
@@ -499,7 +493,6 @@ def _evaluate_library_project(root, spec, static_g1, static_g2, static_g5):
                 g6a_ok = False
                 g6a_msgs.append(msg)
     out["G3"] = ("pass" if g3_ok and g3_msgs else "fail", "; ".join(g3_msgs) or "no G3 simulation checks")
-    out["G4"] = ("pass" if g4_ok and g4_msgs else "fail", "; ".join(g4_msgs) or "no G4 simulation checks")
     if static_g5 and static_g5[0] == "fail":
         out["G5"] = static_g5
     else:

@@ -106,7 +106,7 @@ Install the skills into your target Modelica library repository or globally:
 
 ### 3. OpenModelica Engine (`omc`)
 
-To enable simulation-backed gates (G1 `buildModel`, G2 `--unitChecking`, G3 energy balance, G4 ideal-model comparison, G5 mathematical envelope, G6a reference point):
+To enable simulation-backed gates (G1 `buildModel`, G2 `--unitChecking`, G3 energy balance, G5 mathematical envelope, G6a ideal bound):
 
 - **Docker (cross-platform, recommended)**:
   ```bash

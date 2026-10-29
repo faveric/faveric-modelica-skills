@@ -34,6 +34,5 @@ learning:                    # the issue-end learner (ADR-0018); all optional
   deny_terms: []             # words a universal proposal must not contain (package names are found automatically)
 tolerance_defaults:          # defaults only; real values are declared per issue
   G3_energy_balance_rel: 1.0e-9
-  G4_ideal_rel: 1.0e-6
-  G6a_reference_rel: 1.0e-6
+  G6a_reference_rel: 1.0e-6        # margin on the ideal bound, for solver and rounding error
   G6b_benchmark_rel: 5.0e-2

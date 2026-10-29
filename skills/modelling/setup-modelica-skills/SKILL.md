@@ -13,6 +13,6 @@ Look in the repo first (`AGENTS.md`, `package.mo`, `scripts/*.mos`, `docs/`, `re
 5. **Domain & conventions.** Which physical domain(s) (electrical, mechanical, control, thermal, fluid) and **reference state** / ground conventions are used (`// reference-state: <id>`).
 6. **Record owner.** Supplier, confidentiality, and a reverse-domain classification name (`org.<owner>.modelica-skills.credibility`) for the SRMD **credibility record**.
 7. **Ids.** Keep the `ids` formats of the template (`[ISSUE-001][T-005] <title>`, label `issue-001`) unless the repo has its own.
-8. **Tolerances.** Offer defaults (`G3_energy_balance_rel`, `G4_ideal_rel`, `G6a_reference_rel`); each issue sets its own.
+8. **Tolerances.** Offer defaults (`G3_energy_balance_rel`, `G6a_reference_rel`); each issue sets its own.
 
 Write `.modelica-skills/config.yml` from `templates/config.yml`, add `refs/pdf/` to `.gitignore`, create the required folders (`.modelica-skills/learned/`), and call `engine_status` and `run_gates` (`engine=omc`) on the `modelica` MCP server bundled with the plugin and confirm they run cleanly; map its tools in `engine.tools` (`check`: `check_model`, `simulate`: `simulate`, `results`: `simulate`). Show the result and what is still unresolved.

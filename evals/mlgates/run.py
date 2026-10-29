@@ -1,6 +1,6 @@
 """Run all engine-free (or engine-backed) gates on a project directory (a copy of the example or a real repo).
 
-Keys: G1..G10 judge the MODEL. Without an engine, G3/G4/G6a are 'skip' (nothing was computed on the model).
+Keys: G1..G10 judge the MODEL. Without an engine, G3/G6a are 'skip' (nothing was computed on the model).
 When engine='omc' or 'dymola' is supplied, G1..G6a are evaluated on the Modelica model by that engine.
 M3/M4/M5/M6a are the same checks on the Python mirror: informative about the physics and the checks,
 not about the Modelica file (their equivalence is not checked).
@@ -29,7 +29,7 @@ def run_all(root, spec_name="ISSUE.md", record=None, engine=None):
     out["G1"] = g1
     out["G2"] = g2
     out["G5"] = (g5, g5msg) if g5 == "fail" else ("skip", g5msg + "; limit-case behaviour needs an engine")
-    for g in ("G3", "G4", "G6a"):
+    for g in ("G3", "G6a"):
         out[g] = ("skip", NEED_ENGINE)
     if engine in ("omc", True):
         from evals.adapters import omc_cli

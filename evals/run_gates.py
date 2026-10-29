@@ -100,10 +100,10 @@ def write_record(root, record, spec_name, res, engine=None):
     mlrecord.set_entry(rec, ext, "acceptance", accept.acceptance_text(gaps))
     mlrecord.set_entry(rec, ext, "intended-use.level", spec["level"])
     mlrecord.replace_entries(rec, ext, "source", [f"{s['key']}|{s.get('locator')}|{s.get('transcription')}" for s in spec.get("sources") or []])
-    model_ok = all(eff.get(g, "skip") == "pass" for g in ("G1", "G2", "G3", "G4", "G5"))
+    model_ok = all(eff.get(g, "skip") == "pass" for g in ("G1", "G2", "G3", "G5"))
     mlrecord.set_entry(rec, ext, "coherence-checks",
                        "passed (G1-G5)" if model_ok else "not established: " + ", ".join(
-                           f"{g}={eff.get(g, 'skip')}" for g in ("G1", "G2", "G3", "G4", "G5") if eff.get(g, "skip") != "pass"))
+                           f"{g}={eff.get(g, 'skip')}" for g in ("G1", "G2", "G3", "G5") if eff.get(g, "skip") != "pass"))
 
 
 def execute(root, spec="ISSUE.md", record=None, engine=None, write=False):

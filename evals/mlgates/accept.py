@@ -7,7 +7,7 @@ Granular: one entry per gate. Any accepted gap means the model is at L0 for that
 claim "has been verified". The gate's own result stays in the record; acceptance only stops it from
 failing the run. G10 and RECORD cannot be accepted: they judge the evidence itself.
 """
-ACCEPTABLE = ("G1", "G2", "G3", "G4", "G5", "G6a", "G6b", "G8", "G9")
+ACCEPTABLE = ("G1", "G2", "G3", "G5", "G6a", "G6b", "G8", "G9")
 
 
 def parse(spec):
