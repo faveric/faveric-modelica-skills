@@ -14,7 +14,7 @@ envelope:                    # same variable names as in the code
 tolerances:                  # declared per gate; must exceed solver tolerance with margin
   G3_energy_balance_rel: 1.0e-9
   G6a_reference_rel: 1.0e-6
-  G4_entropy_floor: -1.0e-9
+  G4_ideal_rel: 1.0e-6
 sources:
   - key: example1976
     used_for: <which equation>
@@ -32,6 +32,7 @@ verification:
   gates: [G1, G2, G3, G4, G5, G6a]
   check_models: []           # Modelica names translated by the engine
   simulations: []            # - {model: Pkg.Examples.X, gate: G3, var: balance_residual, stop_time: 1.0, max_abs: 1.0e-9}
+                             #   G4: simulate the ideal-limit case and bound the difference, {gate: G4, var: dev_from_ideal, max_abs: <G4_ideal_rel * scale>}
                              #   other bounds: min, max, sign_change; judged on the min and max over time
   reference: <exact | manufactured | limit case>
 validation:

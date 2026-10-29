@@ -10,7 +10,7 @@ Tolerances come from the issue. Never loosen one to pass, and never remove or lo
 | G1 | It translates and builds (`checkModel` + `buildModel`/`translateModel`), equation count balances, no **structural singularity** (`clockPartitioning`/`Pantelides`), no ignored warnings |
 | G2 | Equations are dimensionally consistent (`omc --unitChecking`); a `Real` without a unit is only a warning (parameters and percentages can be dimensionless) |
 | G3 | Conserved quantities (charge, momentum, mass, energy) balance across the operating grid and transients |
-| G4 | Dissipation / entropy production is non-negative (passive resistor $v \cdot i \ge 0$, mechanical damper $f \cdot v \ge 0$, thermal/fluid $\dot{S}_{\text{gen}} \ge 0$) |
+| G4 | With losses and non-idealities switched off, the model reproduces an ideal model of the same system (closed-form or a simpler reference implementation) over the transient, within `G4_ideal_rel`. Sign checks on dissipation or entropy production are library-specific: keep them in `.modelica-skills/learned/verify-physics.md` |
 | G5 | Range guards exist and use the declared bounds; edge cases (zero through-flow, removable singularities, **bidirectional causality** sign reversal) give finite, sensible values |
 | G6a | Matches an exact, analytical constitutive relation, or simple-limit answer |
 | G6b | Matches independent data or a published benchmark, over a stated range |
@@ -23,7 +23,7 @@ Tolerances come from the issue. Never loosen one to pass, and never remove or lo
 - Default: `"has not been verified"`.
 - `"has been verified"` needs G1-G5, G6a, G8, G9, G10 all passing on the engine (`--engine omc` or `dymola`). At L1 also sources `numeric-checked` against published values, and a `solution-verification: done: ...` tolerance/grid sweep entry in the record.
 - `"has been validated"` needs G6b over a stated range, on data not used for fitting.
-- Balances alone (G3, G4) never earn `"has been verified"`: a coherent-but-wrong constitutive law closes every conservation balance while failing G6a.
+- Balances alone (G3) never earn `"has been verified"`: a coherent-but-wrong constitutive law closes every conservation balance while failing G6a.
 - `checkModel` alone never earns G1: a model with `N == N` equations and variables can still have a **structural singularity** caught only by `buildModel` / `simulate`.
 - A check that passed in an engine stays visible when a later run cannot recompute it (no engine in that session): the record keeps it while the files are unchanged, and the report says "kept, not recomputed". It is dropped as soon as a covered file changes.
 - A check that did not run is `skip`, not `pass`. A static check that cannot decide from text (for example an assert written with `or`) is `skip` with the reason, not `fail`.
