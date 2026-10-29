@@ -32,7 +32,7 @@ Skills are domain-agnostic. Universal improvements are committed to `skills/` (S
 - G6b, G7 and the solution-verification sweep are not implemented as gates; at L1 `has been verified` needs a hand-written `solution-verification: done: ...` record entry, which nothing checks beyond its presence.
 - A `// cite:` tag counts anywhere in the model files, not next to the code that uses the source.
 - The record's gate results are bound to file digests and re-derived on every run (RECORD), but a CI job that runs `evals/run_gates.py` is what enforces it; nothing runs it automatically yet.
-- G2 is a static regex check; full dimensional consistency is validated by `omc --unitChecking` via the engine adapter.
+- G2 is a static regex check; a `Real` without a unit is reported as a warning (the gate still passes), only an `omc --unitChecking` inconsistency fails it; full dimensional consistency is validated by `omc --unitChecking` via the engine adapter.
 - G1 static is a syntax check; full equation balance and structural solvability are validated by `buildModel` via the engine adapter.
 - OpenModelica adapter `evals/adapters/omc_cli.py` has been verified end-to-end. The Dymola adapter `evals/adapters/dymola.py` and the Dymola MCP server (`server/dymola_mcp.py`, ADR-0016, ADR-0017) are tested only against a fake `DymolaInterface`, never against a real Dymola; `readTrajectorySize`, `readTrajectory` and `DymolaVersion` are TO-VERIFY.
 - Static checks are text matching, not parsers (G1, G2, G5, G8). They report file and line and `skip` when they cannot decide; they can still miss a defect. Two reported false positives (`Real` in records or non-declarations) could not be reproduced without an input and have no test.

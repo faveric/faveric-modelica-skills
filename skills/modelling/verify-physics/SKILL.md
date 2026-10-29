@@ -8,7 +8,7 @@ Tolerances come from the issue. Never loosen one to pass, and never remove or lo
 | Id | Check |
 |---|---|
 | G1 | It translates and builds (`checkModel` + `buildModel`/`translateModel`), equation count balances, no **structural singularity** (`clockPartitioning`/`Pantelides`), no ignored warnings |
-| G2 | Every `Real` has a unit; equations are dimensionally consistent (`omc --unitChecking`) |
+| G2 | Equations are dimensionally consistent (`omc --unitChecking`); a `Real` without a unit is only a warning (parameters and percentages can be dimensionless) |
 | G3 | Conserved quantities (charge, momentum, mass, energy) balance across the operating grid and transients |
 | G4 | Dissipation / entropy production is non-negative (passive resistor $v \cdot i \ge 0$, mechanical damper $f \cdot v \ge 0$, thermal/fluid $\dot{S}_{\text{gen}} \ge 0$) |
 | G5 | Range guards exist and use the declared bounds; edge cases (zero through-flow, removable singularities, **bidirectional causality** sign reversal) give finite, sensible values |
