@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PLACEHOLDER namespaces and element names: written from a partial reading of SSP-LS-Traceability 1.0.
+     Check against the published XSD before relying on it (AGENTS.md, known gaps).
+     tools/mlrecord.py matches on local names, so it tolerates namespace changes. -->
+<srmd:SimulationResourceMetaData xmlns:srmd="urn:placeholder:srmd" version="1.0">
+  <srmd:Classification type="org.mic-core.mic-core">
+    <srmd:Entry keyword="administrative-data.model.name">MODEL NAME</srmd:Entry>
+    <srmd:Entry keyword="administrative-data.model.supplier">SUPPLIER</srmd:Entry>
+    <srmd:Entry keyword="administrative-data.model.confidentiality-level">internal</srmd:Entry>
+    <srmd:Entry keyword="administrative-data.release">0.1.0</srmd:Entry>
+    <srmd:Entry keyword="implementation.model.limitations">ENVELOPE AND KNOWN WEAKNESSES IN WORDS</srmd:Entry>
+    <srmd:Entry keyword="verification-validation.verification-status">has not been verified</srmd:Entry>
+    <srmd:Entry keyword="verification-validation.validation-status">has not been validated</srmd:Entry>
+    <srmd:Entry keyword="verification-validation.procedure-criteria">ASME V&amp;V terminology; gates G1-G10 per issue</srmd:Entry>
+  </srmd:Classification>
+  <srmd:Classification type="org.example.modelica-skills.credibility">
+    <srmd:Entry keyword="issue">ISSUE-000 0.1.0</srmd:Entry>
+    <srmd:Entry keyword="intended-use.level">L0</srmd:Entry>
+    <srmd:Entry keyword="coherence-checks">not run</srmd:Entry>
+    <srmd:Entry keyword="model.file">path/to/Model.mo|sha256-hex</srmd:Entry>
+  </srmd:Classification>
+</srmd:SimulationResourceMetaData>

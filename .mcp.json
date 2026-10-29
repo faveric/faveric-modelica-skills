@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "modelica": {
+      "command": "uv",
+      "args": ["run", "--quiet", "--with", "mcp>=1.2,<2", "--with", "pyyaml", "python", "${CLAUDE_PLUGIN_ROOT}/server/modelica_mcp.py"]
+    },
+    "dymola": {
+      "command": "uv",
+      "args": ["run", "--quiet", "--with", "mcp>=1.2,<2", "python", "${CLAUDE_PLUGIN_ROOT}/server/dymola_mcp.py"]
+    }
+  }
+}

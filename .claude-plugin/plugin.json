@@ -1,0 +1,11 @@
+{
+  "name": "modelica-skills",
+  "version": "0.0.1",
+  "description": "Skills and an MCP server (OpenModelica gates; Dymola translate/simulate) for building credible Modelica models: interview, issue, tasks, implement on physics gates, review, calibrate.",
+  "author": { "name": "faveric" },
+  "homepage": "https://github.com/faveric/faveric-modelica-skills",
+  "repository": "https://github.com/faveric/faveric-modelica-skills",
+  "license": "MIT",
+  "keywords": ["modelica", "openmodelica", "dymola", "simulation", "verification", "mcp"],
+  "skills": ["./skills/modelling/", "./skills/productivity/"]
+}

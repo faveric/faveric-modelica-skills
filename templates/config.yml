@@ -1,0 +1,39 @@
+# .modelica-skills/config.yml  (written by /setup-modelica-skills)
+engine:
+  mode: static-only          # mcp | static-only; set to mcp once engine_status reports available (no engine: nothing can be called verified)
+  backend: omc               # omc | dymola; `run_gates --engine auto` uses it when mode is mcp
+  dymola:                    # used when backend is dymola (adapter: evals/adapters/dymola.py)
+    path: null               # Dymola installation directory
+    packages: []             # package.mo files loaded before every call
+    basedir: null            # base for relative package paths
+  mcp_server: modelica       # bundled server (.mcp.json); or another server exposing the same tools
+  tools:                     # map each action to the tool name that server exposes; null = not available
+    load: null               # load the library and the model
+    check: check_model      # translate / check the model
+    simulate: simulate       # run a simulation
+    results: simulate        # result series come back from simulate
+  version: null              # engine version to pin
+versions: {modelica: "4.0.0", msl: "4.0.0", library: null}
+tracker: {kind: files, path: docs/tasks}    # kind: files | github
+ids:                         # defined once; to-tasks and tools/mlissue.py use these
+  issue: "ISSUE-{n:03d}"
+  task: "T-{n:03d}"
+  title: "[{issue}][{task}] {title}"
+  label: "{issue_lower}"
+docs: {glossary: GLOSSARY.md, adr: docs/adr, issues: docs/issues, records: records}
+references: {manifest: refs/refs.bib, pdf: refs/pdf, transcriptions: refs/transcriptions}
+conventions: {units: SI, test_packages: [Examples, Validation]}
+media: {libraries: [], note: "each issue declares medium and reference state (ADR-0012)"}
+credibility:
+  supplier: <organisation>
+  confidentiality_level: <e.g. internal>
+  classification_type: org.example.modelica-skills.credibility   # placeholder; use a domain you control
+learning:                    # the issue-end learner (ADR-0018); all optional
+  max_per_issue: 3           # live candidates and active entries per issue
+  skills_dir: .claude/skills # where approved library skills are installed
+  deny_terms: []             # words a universal proposal must not contain (package names are found automatically)
+tolerance_defaults:          # defaults only; real values are declared per issue
+  G3_energy_balance_rel: 1.0e-9
+  G4_entropy_floor: -1.0e-9
+  G6a_reference_rel: 1.0e-6
+  G6b_benchmark_rel: 5.0e-2

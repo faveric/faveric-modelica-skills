@@ -1,0 +1,12 @@
+{
+  "name": "faveric-modelica-skills",
+  "description": "Modelica modelling skills with a bundled simulation/gates MCP server",
+  "owner": { "name": "faveric" },
+  "plugins": [
+    {
+      "name": "modelica-skills",
+      "source": "./",
+      "description": "Skills for credible Modelica models, plus the `modelica` MCP server (OpenModelica adapter; Dymola planned)"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# Engine artefacts
+# Generated output
+# Local source material (copyright): keep the manifest, not the PDFs
+# Library-specific overlays (lessons and skills proposed by the learner; not committed to public base skills)
+# Python
+**/refs/pdf/
+**/.modelica-skills/learned/
+skills/local/
+*.c
+*.exe
+*.log
+*.mat
+*.o
+*.pyc
+*_res.csv
+__pycache__/
+evals/.work/
+evals/out/
+refs/pdf/
