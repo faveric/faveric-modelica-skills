@@ -100,7 +100,8 @@ class TestStaticGates(unittest.TestCase):
         (self.work / "ISSUE.md").write_text(issue, encoding="utf-8")
         s = spec.load_spec(self.work / "ISSUE.md")
         g2 = static.g2_units(self.work, s)
-        self.assertEqual(g2[0], "fail", "G2 must catch missing unit attribute")
+        self.assertEqual(g2[0], "pass", "G2 missing unit is a warning, not a failure")
+        self.assertTrue(g2[1].startswith("warning: Real without unit"), g2[1])
 
 
     def _gate(self, mo, bytes_=False):
@@ -148,7 +149,7 @@ class TestStaticGates(unittest.TestCase):
 
     def test_static_messages_carry_line_numbers(self):
         st, msg = static.g2_units(self.work, self._gate("model A\n  /* a\n  comment */\n  Real x;\nend A;\n"))
-        self.assertEqual(st, "fail")
+        self.assertEqual(st, "pass")
         self.assertIn("M.mo:4: x", msg)
         st, msg = static.g1_syntax(self.work, self._gate("model A\nequation\nend B;\n"))
         self.assertIn("A (line 1)", msg)

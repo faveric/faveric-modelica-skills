@@ -4,7 +4,7 @@ Raw per-gate output stays available (`run_gates --raw`); the summary is what a t
 """
 import re
 
-ORDER = ("failed", "needs a human decision", "skipped", "passed")
+ORDER = ("failed", "needs a human decision", "skipped", "passed with warnings", "passed")
 
 
 def _cause(msg, width=150):
@@ -32,6 +32,8 @@ def classify(res, gaps=None, stored=None):
             st = kept.split(";")[0].strip().lower()
             note = f" (record keeps its earlier {st}: {_cause(kept.partition(';')[2].strip(), 70)})" if st in ("pass", "fail") else ""
             out["skipped"].append((g, f"{g}: {_cause(m, 90)}{note}"))
+        elif str(m).startswith("warning:"):
+            out["passed with warnings"].append((g, f"{g}: {_cause(m, 150)}"))
         else:
             out["passed"].append((g, g))
     return out

@@ -91,8 +91,10 @@ def g2_units(root, spec):
                 if name and "unit=" not in part.replace(" ", ""):
                     missing.append(f"{p.name}:{_line(text, start + len(stmt) - len(stmt.lstrip()))}: {name.group(1)}")
     if missing:
-        return "fail", ("Real without unit: " + ", ".join(missing)
-                        + " (text check: a false positive if the declaration is not a component declaration; unit may come from a type)")
+        # A warning, not a failure: parameters and percentages can be legitimately dimensionless Real.
+        return "pass", ("warning: Real without unit: " + ", ".join(missing)
+                        + " (text check: fine for dimensionless values such as fractions or percentages; "
+                        "a false positive if the declaration is not a component declaration or the unit comes from a type)")
     return "pass", "every Real declaration carries a unit (text check; dimensional consistency of equations needs an engine)"
 
 
