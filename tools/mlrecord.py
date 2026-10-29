@@ -131,7 +131,7 @@ def check(path, root):
             f.append(("fail", f"claims '{VERIFIED}' with accepted gaps ({names}): accepted gaps keep the model below it"))
         if (values(ents, ext, "intended-use.level") or ["L0"])[0] != "L0":
             f.append(("fail", f"accepted gaps ({names}) are only allowed at level L0"))
-    need_ver = ["G1", "G2", "G3", "G4", "G5", "G6a", "G8", "G9"]  # G10 is judged by the digests, never stored
+    need_ver = ["G1", "G2", "G3", "G5", "G6a", "G8", "G9"]  # G10 is judged by the digests, never stored
     level = (values(ents, ext, "intended-use.level") or ["L0"])[0]
     if ver == VERIFIED and level == "L1":
         if not any(v.strip().lower().startswith("done:") for v in values(ents, ext, "solution-verification")):

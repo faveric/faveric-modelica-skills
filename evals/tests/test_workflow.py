@@ -237,7 +237,7 @@ class TestDymolaAdapter(unittest.TestCase):
         res = self.gates(write=True)
         self.assertEqual(res["G1"][0], "pass", res["G1"])
         self.assertEqual(res["G3"][0], "pass", res["G3"])
-        self.assertEqual(res["G4"][0], "skip")
+        self.assertNotIn("G4", res)
         self.assertEqual(res["G2"][0], "pass")
         rec = self.d / "records" / "credibility-record.srmd.xml"
         ents = mlrecord.entries(mlrecord.load(rec))
