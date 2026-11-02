@@ -14,6 +14,7 @@ This is a router, not a driver. It reads the state of the work from the files an
    - Suggest `/interview-model` for new work, then `/to-issue` when the interview ends with the level (L0 or L1) and the ranges and sources set, then `/to-tasks` when the issue header parses and its at-a-glance block is current.
    - Suggest `/implement` for the next open task whose blockers are closed, once that task states its physical question.
    - Suggest `/review-model` when every task is closed; it writes the conclusion. Suggest `/approve-lessons` when candidates wait.
+   - Suggest `/interview-failed-issue` when a closed issue's Outcome is `missed` and it has no failure note; then `/to-issue` if the decision is recover.
    - Suggest `/calibrate` for a calibration. For a model that does not run, use `diagnosing-simulation`. When the conclusion exists and the learner has not run, offer `learn-from-issue`.
 5. **List the decisions that stay with the person at this step:** L0 or L1, an accepted gap, an extrapolation beyond a source's range, a tolerance loose against the solver tolerance.
 

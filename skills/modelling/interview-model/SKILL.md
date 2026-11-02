@@ -7,18 +7,21 @@ disable-model-invocation: true
 Follow the `interviewing` rules. Read `GLOSSARY.md`, `.modelica-skills/config.yml`, existing issues and records first. No config: suggest `/setup-modelica-skills`.
 
 Ask in this order:
-
 1. **Use.** What decision does the model support? L0 (rough comparison) or L1 (design decision). Refuse L2 (see `SCOPE.md`).
-2. **Boundary.** What is in, what is out, what crosses the edge.
-3. **Physics.** Equations in words, then symbols. Steady or dynamic. What is neglected and what would make you distrust the result.
-4. **Fluid and reference state.**
-5. **Ranges.** For each variable: min, max, unit, and what happens outside (warn or stop).
-6. **Sources.** Where does each correlation or constant come from? Use `cite-source` as soon as one appears, and compare its valid range with step 5.
-7. **Feasibility.** For every target the model must reach (an outlet temperature, a superheat, a flow), compute the physical limit first and compare. A target beyond the limit is a finding for the owner, not a tuning problem.
-8. **Exact answer to compare with.** A closed form, a simple limit, or nothing (then it cannot be called verified).
-9. **Data to compare with.** Which range? None means it stays unvalidated.
-10. **Fragile spots.** Zero flow, reverse flow, phase change.
+2. **Physics.** Equations in words, then symbols. Steady or dynamic. What is neglected and what would make you distrust the result.
+3. **Boundary Conditions.** Conditions at the model's edges. They can be:
+  (a) Dirichlet (fixed value), (b) Neumann (fixed derivative), or (c) Robin (linear combination). For each: which variable, which value, and what happens outside the range.
+4. **Initial Conditions.** For dynamic models, what is the starting state? If it is not known, how will it be found?
+5. **Reference state.** What is the reference state? (skip if not relevant) 
+Examples: 
+- For fluid dynamics what is the reference for zero enthalpy? Make IIR as default.
+- For thermodynamic second law, what is the dead state? 
+6. **Ranges.** For each variable: min, max, unit, and what happens outside (warn or stop).
+7. **Sources.** Where does each correlation or constant come from? Use `cite-source` as soon as one appears. If ranges are outside the source range, ask for an extrapolation ADR and put its id in `extrapolation_adr`.
+8. **Feasibility.** For every target the model must reach (an outlet temperature, a superheat, a flow), compute the physical ideal limit first and compare. 
+9. **Reference to compare with, and acceptance.** Reference data to validate the model; if none, an exact answer (analytical solution, limiting case, or a published table row). Then the **acceptance**: metric, target, unit, and what it is measured against (for example heat flow error below 10% against data set X). Fixed now, before building: a miss later is a measured value beyond it.
+10. **Fragile spots.** Zero flow, reverse flow, phase change. Part of model documentation.
 
 Fuzzy words go into `GLOSSARY.md` at once. Hard-to-undo decisions get a one-page note in `docs/adr/`.
 
-Before finishing, check: every variable has a unit, every correlation has a source whose range contains the ranges from step 5, the level is set. Show the log, then suggest `/to-issue`.
+Before finishing, recap the problem setup and ask user confirmation then suggest `/to-issue`.

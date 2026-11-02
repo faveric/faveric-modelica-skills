@@ -2,28 +2,35 @@
 id: T-000
 issue: ISSUE-000
 type: AFK                    # AFK = an agent can do it alone; HITL = needs a human decision
-blocked_by: []
-title: "[ISSUE-000][T-000] <title>"   # id format: `ids` in .modelica-skills/config.yml; helper: tools/mlissue.py title
+builds_on: null              # previous slice this one extends (same component, one more behaviour); set by mlissue.py task --builds-on
+blocked_by: []               # only when this task consumes another task's RESULT, never for ordering
+title: "[ISSUE-000][T-000] <title>"   # id format: `ids` in .modelica-skills/config.yml
 ---
+<!-- Header slice (level, conditions, envelope, tolerances, sources, reference) is copied from the issue by
+     `python3 tools/mlissue.py task <issue> <T-id> "<title>" --write`. Do not retype it; do not open the issue to build this. -->
 
-# <vertical slice, one behaviour end to end>
+# <one physical question, answered end to end>
 
 ## Physical question
-One sentence: what physical fact must this task establish? The report opens with it, and the gate results are read against it.
+One sentence: what must be established, over which ranges, for which decision. Boundary and initial conditions and the reference state are in the header.
 
-## Behaviour
-What can be observed when this is done (inputs, outputs, envelope part).
+## Model
+What is written (components, equations in words, sources by key). Check written first, failing for the right reason.
 
-## Red first
-The check that fails now: gate id, reference, tolerance.
+## Run
+The case: model name, inputs, stop time, solver, engine and version.
+
+## Compare
+Against what (data, exact answer, ideal bound), with which tolerance. Result and deviation.
+
+## Answer
+At most 10 lines, written last. First line: **Outcome: met | missed**, measured <value> vs the acceptance target (and, in a recovery issue, vs the baseline). Then the physical answer in numbers; what it was compared with; **credibility: verified | partial | assumed**; each unverified gate and each assumption (agent-recorded, unreviewed); what the result may and may not be used for; commit hash.
 
 ## Done when
-- [ ] the red check is green
-- [ ] all gates required at the issue level pass or are honestly `open`/`skip`
-- [ ] record updated (gate results, hashes, sources)
-- [ ] no tolerance changed to pass
-
-## Closing comment (3 to 5 lines, posted on the task when it closes)
-What was done; result of the named checks; deviations accepted with the owner's decision (who, why); commit hash.
+- [ ] the model ran and a result exists
+- [ ] the comparison is made and its deviation is stated
+- [ ] the Answer is written, with credibility and gaps
+- [ ] record updated once (gate results, hashes, sources)
+- [ ] no tolerance changed and no guard removed to pass
 
 ## Notes

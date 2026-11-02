@@ -4,7 +4,7 @@ import re, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-USER_INVOKED = {"startsession", "setup-modelica-skills", "interview-model", "to-issue", "to-tasks", "implement",
+USER_INVOKED = {"startsession", "setup-modelica-skills", "interview-model", "interview-failed-issue", "to-issue", "to-tasks", "implement",
                 "review-model", "calibrate", "approve-lessons"}
 MODEL_INVOKED = {"verify-physics", "cite-source", "credibility-record", "model-design",
                  "diagnosing-simulation", "interviewing", "learn-from-issue"}

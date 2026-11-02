@@ -84,7 +84,7 @@ def issue_state(root, path, tasks, tracker_kind, entries):
     out.update(id=str(spec.get("id") or path.stem), title=spec.get("title"), level=spec.get("level"))
     text = read_text(path)
     if mlissue.BEGIN.split(" (")[0] in text:
-        if mlissue._replace(text, mlissue.summary_block(spec)) != text:
+        if mlissue._replace(text, mlissue.summary_block(spec, path.parent)) != text:
             out["warnings"].append("the at-a-glance block is stale: run `python3 tools/mlissue.py summary <issue> --write`")
     iid = out["id"]
     if tracker_kind:
@@ -108,6 +108,10 @@ def issue_state(root, path, tasks, tracker_kind, entries):
         return out
     if concl:
         out.update(stage="review", next="/review-model", why="all tasks are closed and there is no conclusion yet")
+        return out
+    idir = Path(root) / "docs" / "issues"
+    if mlissue.outcome(idir, iid)[0] == "missed" and not (idir / f"{iid}-failure.md").exists():
+        out.update(stage="failure", next="/interview-failed-issue", why="the target was missed and the cause is not diagnosed yet")
         return out
     ev = Path(root) / ".modelica-skills" / "learned" / "evidence" / f"{iid}.json"
     waiting = [e for e in entries if e["issue"] == iid and e["status"] == "candidate"]
@@ -136,7 +140,7 @@ def state(root="."):
             pass
     idir = root / "docs" / "issues"
     for p in sorted(idir.glob("*.md")) if idir.is_dir() else []:
-        if not p.name.endswith("-conclusion.md"):
+        if not p.name.endswith(mlissue.SUFFIXES):
             out["issues"].append(issue_state(root, p, tasks or [], tracker_kind, entries))
     for rec in sorted((root / "records").glob("*.srmd.xml")) if (root / "records").is_dir() else []:
         try:

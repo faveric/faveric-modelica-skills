@@ -11,7 +11,8 @@ HEADER = "---\nid: ISSUE-001\ntitle: t\nlevel: L0\nmodel_files: [src/M.mo]\nsour
 def task(tid, boxes, blocked=(), question="Does y follow T?", issue="ISSUE-001"):
     b = "\n".join(f"- [{'x' if v else ' '}] check {i}" for i, v in enumerate(boxes))
     return (f"---\nid: {tid}\nissue: {issue}\ntype: AFK\nblocked_by: {list(blocked)}\n---\n# {tid}\n\n"
-            f"## Physical question\n{question}\n\n## Done when\n{b}\n")
+            f"## Physical question\n{question}\n\n## Answer\n{'y follows T within 2%. credibility: partial.' if all(boxes) else ''}\n\n"
+            f"## Done when\n{b}\n")
 
 
 class StateCase(unittest.TestCase):
@@ -74,7 +75,7 @@ class TestStages(StateCase):
         self.issue()
         self.task("001.md", "T-001", [True])
         self.assertEqual(self.stage()["next"], "/review-model")
-        shutil.copy2(ROOT / "templates" / "conclusion.md", self.d / "docs" / "issues" / "ISSUE-001-conclusion.md")
+        (self.d / "docs" / "issues" / "ISSUE-001-conclusion.md").write_text((ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace("**Outcome: met | missed**, measured <value> vs target <value>", "**Outcome: met**, error 4% vs target 10%"), encoding="utf-8")
         s = self.stage()
         self.assertEqual((s["stage"], s["next"]), ("learn", None))
         self.assertIn("learn-from-issue", s["why"])
@@ -88,6 +89,24 @@ class TestStages(StateCase):
         self.assertEqual((s["stage"], s["next"]), ("approve", "/approve-lessons"))
         (ev / "entries" / "L-ISSUE-001-1.json").write_text(json.dumps({"id": "L-ISSUE-001-1", "issue": "ISSUE-001", "status": "active"}), encoding="utf-8")
         self.assertEqual(self.stage()["stage"], "done")
+
+    def test_missed_outcome_routes_to_the_failure_interview_before_the_learner(self):
+        from tools import mllearn
+        self.issue()
+        self.task("001.md", "T-001", [True])
+        text = (ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace(
+            "**Outcome: met | missed**, measured <value> vs target <value>", "**Outcome: missed**, error 30% vs target 10%")
+        (self.d / "docs" / "issues" / "ISSUE-001-conclusion.md").write_text(text, encoding="utf-8")
+        s = self.stage()
+        self.assertEqual((s["stage"], s["next"]), ("failure", "/interview-failed-issue"))
+        with self.assertRaises(ValueError) as c:
+            mllearn.collect(self.d, "ISSUE-001")
+        self.assertIn("interview-failed-issue", str(c.exception))
+        (self.d / "docs" / "issues" / "ISSUE-001-failure.md").write_text("# f\n\n## Decision\nstop\n", encoding="utf-8")
+        self.assertEqual(self.stage()["stage"], "learn")
+        _, bundle = mllearn.collect(self.d, "ISSUE-001")
+        self.assertIn("failure", {i["kind"] for i in bundle["items"]})
+        self.assertEqual(len(mlstate.state(self.d)["issues"]), 1)  # the failure note is not an issue
 
     def test_other_tracker_is_reported_not_guessed(self):
         (self.d / ".modelica-skills" / "config.yml").write_text("tracker: {kind: github}\n", encoding="utf-8")
