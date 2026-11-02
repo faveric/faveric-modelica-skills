@@ -33,7 +33,7 @@ class LearnerCase(unittest.TestCase):
         (self.d / ".modelica-skills").mkdir()
 
     def conclude(self):
-        shutil.copy2(ROOT / "templates" / "conclusion.md", self.d / "docs" / "issues" / "ISSUE-001-conclusion.md")
+        (self.d / "docs" / "issues" / "ISSUE-001-conclusion.md").write_text((ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace("**Outcome: met | missed**, measured <value> vs target <value>", "**Outcome: met**, error 4% vs target 10%"), encoding="utf-8")
 
     def bundle(self):
         self.conclude()

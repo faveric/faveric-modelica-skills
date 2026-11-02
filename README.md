@@ -30,7 +30,8 @@ You run these:
 - [setup-modelica-skills](skills/modelling/setup-modelica-skills/SKILL.md): once per repo; picks the simulation MCP server and where things live.
 - [interview-model](skills/modelling/interview-model/SKILL.md): questions that fix use, physics, ranges and sources.
 - [to-issue](skills/modelling/to-issue/SKILL.md): turn the conversation into an issue.
-- [to-tasks](skills/modelling/to-tasks/SKILL.md): split the issue into small tasks.
+- [to-tasks](skills/modelling/to-tasks/SKILL.md): split the issue into vertical slices, one behaviour each.
+- [interview-failed-issue](skills/modelling/interview-failed-issue/SKILL.md): diagnose a closed issue that missed its target; ends in recover, accept or stop.
 - [implement](skills/modelling/implement/SKILL.md): build a task, check first.
 - [review-model](skills/modelling/review-model/SKILL.md): independent review of a change.
 - [calibrate](skills/modelling/calibrate/SKILL.md): fit parameters without fooling yourself.

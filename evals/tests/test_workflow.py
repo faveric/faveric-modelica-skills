@@ -292,10 +292,76 @@ class TestIssueHelpers(unittest.TestCase):
             self.assertIn("Accepted gaps", body)
             specmod.load_spec(d / "ISSUE.md")  # the header still parses
 
+    def test_check_fails_on_stale_summary_and_bad_deliverable(self):
+        with tempfile.TemporaryDirectory() as t:
+            d = make_project(Path(t) / "p")
+            p = d / "ISSUE.md"
+            p.write_text(p.read_text(encoding="utf-8") + f"\n{mlissue.BEGIN}\n{mlissue.END}\n", encoding="utf-8")
+            fails, _ = mlissue.check(p)
+            self.assertTrue(any("stale" in f for f in fails))
+            mlissue.main(["summary", str(p), "--write"])
+            self.assertEqual(mlissue.check(p)[0], [])
+            text = p.read_text(encoding="utf-8").replace("\nenvelope:", "\ndeliverables:\n  - {result: x, gate: G99}\nenvelope:", 1)
+            p.write_text(text, encoding="utf-8")
+            mlissue.main(["summary", str(p), "--write"])
+            self.assertTrue(any("G99" in f for f in mlissue.check(p)[0]))
+
+    def test_task_slice_and_answers_block_closing(self):
+        with tempfile.TemporaryDirectory() as t:
+            d = make_project(Path(t) / "p")
+            tasks, issues = Path(t) / "tasks", Path(t) / "issues"
+            tasks.mkdir(), issues.mkdir()
+            text = mlissue.task_text(specmod.load_spec(d / "ISSUE.md"), "T-001", "Pressure drop")
+            (tasks / "T-001-pressure-drop.md").write_text(text, encoding="utf-8")
+            head = specmod.load_spec(tasks / "T-001-pressure-drop.md")
+            self.assertEqual((head["id"], head["issue"], head["envelope"]), ("T-001", specmod.load_spec(d / "ISSUE.md")["id"],
+                                                                           specmod.load_spec(d / "ISSUE.md")["envelope"]))
+            nxt = mlissue.task_text(specmod.load_spec(d / "ISSUE.md"), "T-002", "Ice", "T-001", "dp within 3%.")
+            (tasks / "T-002-ice.md").write_text(nxt, encoding="utf-8")
+            h2 = specmod.load_spec(tasks / "T-002-ice.md")
+            self.assertEqual((h2["builds_on"], h2["blocked_by"]), ("T-001", ["T-001"]))
+            self.assertIn("> dp within 3%.", nxt)
+            (tasks / "T-002-ice.md").unlink()
+            (issues / f"{head['issue']}-conclusion.md").write_text((ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace("**Outcome: met | missed**, measured <value> vs target <value>", "**Outcome: met**, error 4% vs target 10%"), encoding="utf-8")
+            self.assertTrue(any("no Answer" in m for m in mlissue.can_close(head["issue"], issues)))
+            (tasks / "T-001-pressure-drop.md").write_text(text.replace("At most 10 lines, written last.", "dp within 3% of the reference."), encoding="utf-8")
+            self.assertEqual(mlissue.can_close(head["issue"], issues), [])
+
+    def test_failure_chain_history_outcome_and_follows(self):
+        placeholder = "**Outcome: met | missed**, measured <value> vs target <value>"
+        concl = (ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as t:
+            d = Path(t)
+            self.assertTrue(any("Outcome" in m for m in (d.joinpath("ISSUE-001-conclusion.md").write_text(concl, encoding="utf-8"),
+                                                          mlissue.can_close("ISSUE-001", d))[1]))  # placeholder is not an outcome
+            (d / "ISSUE-001.md").write_text("---\nid: ISSUE-001\ntitle: first try\nlevel: L0\n---\n", encoding="utf-8")
+            (d / "ISSUE-001-conclusion.md").write_text(concl.replace(placeholder, "**Outcome: missed**, error 30% vs target 10%"), encoding="utf-8")
+            self.assertEqual((mlissue.outcome(d, "ISSUE-001")[0], mlissue.can_close("ISSUE-001", d)), ("missed", []))
+            (d / "ISSUE-001-failure.md").write_text("# f\n\n## Cause bucket\nmodel, suspected\n\n## Hypotheses\n"
+                                                    "- H1 [open] correlation out of range\n- H2 [open] data bias\n\n## Decision\nrecover\n", encoding="utf-8")
+            p = d / "ISSUE-002.md"
+            p.write_text("---\nid: ISSUE-002\ntitle: second try\nlevel: L0\nfollows: ISSUE-001\n"
+                         "baseline: {metric: err, value: 0.3, target: 0.1}\n---\n" f"\n{mlissue.BEGIN}\n{mlissue.END}\n", encoding="utf-8")
+            (d / "ISSUE-002-conclusion.md").write_text(
+                concl.replace(placeholder, "**Outcome: met**, error 6% vs target 10%").replace(
+                    "## Hypotheses tested\n", "## Hypotheses tested\nISSUE-001:H1 ruled-out evidence: T-001 Answer\n"), encoding="utf-8")
+            self.assertEqual(mlissue.can_close("ISSUE-002", d), [])
+            mlissue.main(["summary", str(p), "--write"])
+            body = p.read_text(encoding="utf-8")
+            self.assertIn("| ISSUE-001 | first try | missed, error 30% vs target 10%", body)
+            self.assertIn("| ISSUE-001:H1 | open | correlation out of range |", body)  # earlier attempts only
+            self.assertIn("**Baseline** (follows ISSUE-001)", body)
+            nxt = mlissue.history_block({"id": "ISSUE-003", "follows": "ISSUE-002"}, d)  # ISSUE-002 tested H1
+            self.assertIn("| ISSUE-001:H1 | ruled-out | correlation out of range |", nxt)
+            self.assertIn("| ISSUE-001:H2 | open | data bias |", nxt)
+            self.assertEqual(mlissue.check(p)[0], [])
+            (d / "ISSUE-001-conclusion.md").write_text(concl.replace(placeholder, "**Outcome: met**, error 4% vs target 10%"), encoding="utf-8")
+            self.assertTrue(any("Outcome: missed" in f for f in mlissue.check(p)[0]))
+
     def test_can_close_needs_the_conclusion(self):
         with tempfile.TemporaryDirectory() as t:
             self.assertTrue(mlissue.can_close("ISSUE-001", t))
-            shutil.copy2(ROOT / "templates" / "conclusion.md", Path(t) / "ISSUE-001-conclusion.md")
+            (Path(t) / "ISSUE-001-conclusion.md").write_text((ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace("**Outcome: met | missed**, measured <value> vs target <value>", "**Outcome: met**, error 4% vs target 10%"), encoding="utf-8")
             self.assertEqual(mlissue.can_close("ISSUE-001", t), [])
 
 

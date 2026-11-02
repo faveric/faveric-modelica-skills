@@ -149,13 +149,23 @@ def collect(root, issue):
     for ln in (log or "").splitlines():
         h, _, subj = ln.partition("\t")
         items.append({"id": f"E{len(items) + 1}", "kind": "commit", "ref": h, "text": subj})
-    issue_file = next((f for f in sorted((root / "docs" / "issues").glob(f"{issue}*.md")) if not f.name.endswith("-conclusion.md")), None)
+    idir = root / "docs" / "issues"
+    failure = idir / f"{issue}-failure.md"
+    if mlissue.outcome(idir, issue)[0] == "missed" and not failure.exists():
+        raise ValueError("the target was missed: run /interview-failed-issue first, so the lesson is the diagnosed cause")
+    if failure.exists():
+        items.append({"id": f"E{len(items) + 1}", "kind": "failure", "ref": failure.relative_to(root).as_posix(),
+                      "text": failure.read_text(encoding="utf-8-sig", errors="replace")})
+    issue_file = mlissue.issue_file(idir, issue)
     if issue_file:
         from evals.mlgates.spec import load_spec
         try:
             spec = load_spec(issue_file)
         except (ValueError, OSError, yaml.YAMLError):
             spec = {}
+        hist = mlissue.history_block(spec, idir) if spec.get("follows") else ""
+        if hist:  # every earlier attempt with the latest status of each hypothesis: tested negatives are citable here
+            items.append({"id": f"E{len(items) + 1}", "kind": "history", "ref": f"follows {spec['follows']}", "text": hist})
         for g in spec.get("accepted_gaps") or []:
             items.append({"id": f"E{len(items) + 1}", "kind": "accepted-gap", "ref": str(g.get("gate")),
                           "text": f"{g.get('owner')}: {g.get('reason')}"})
