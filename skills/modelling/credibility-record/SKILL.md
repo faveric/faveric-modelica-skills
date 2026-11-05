@@ -18,3 +18,5 @@ The record is an XML file in `records/` (template: `templates/credibility-record
 - A result from another engine or version is a different result.
 
 Create the record with the first task, update it after every run, and raise a status only when `verify-physics` allows it.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

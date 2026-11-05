@@ -23,3 +23,5 @@ A citation lends authority to a number. Make sure it is earned.
 - L1: locator read, `validity_verified: true`, validity range recorded and containing the model's envelope, and `numeric-checked` with a passing `check_script`.
 
 Typical slips: sign, exponent, reciprocal inversion, unit conversion factor, constitutive relation applied outside its valid regime, or a misprint copied from a secondary source.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

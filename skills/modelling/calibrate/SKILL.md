@@ -13,3 +13,5 @@ Use the `interviewing` rules for the setup.
 3. **Structure test.** A parameter on a bound, a physically odd value, or a trend in the residuals means the model structure is wrong. Stop, say so, suggest `/interview-model`. Do not widen bounds.
 4. **Compare on the held-out set only**, against the issue's tolerance.
 5. **Record** with `credibility-record`: "validated" only for the range actually covered, otherwise "validated with limitations" naming the range. Store the data hashes and parameters.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

@@ -16,7 +16,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from evals.mlgates.spec import load_spec, read_text  # noqa: E402
-from tools import mlissue, mlrecord  # noqa: E402
+from tools import mlissue, mlrecord, mlwork  # noqa: E402
 
 PLACEHOLDER = re.compile(r"^(one sentence|<)", re.I)
 
@@ -127,7 +127,7 @@ def issue_state(root, path, tasks, tracker_kind, entries):
 def state(root="."):
     root = Path(root)
     cfg = _cfg(root)
-    out = {"configured": bool(cfg), "issues": [], "record_warnings": [], "next": None}
+    out = {"configured": bool(cfg), "issues": [], "record_warnings": [], "work_warnings": [], "next": None}
     if not cfg:
         out["next"] = {"command": "/setup-modelica-skills", "why": "no .modelica-skills/config.yml"}
     tasks, tracker_kind = read_tasks(root, cfg)
@@ -149,6 +149,17 @@ def state(root="."):
             stale = [f"unreadable: {str(exc)[:60]}"]
         if stale:
             out["record_warnings"].append(f"{rec.name}: {stale[0]}")
+    if cfg:
+        try:
+            wc = mlwork.check(root)
+            if not wc["configured"]:
+                out["work_warnings"].append("config.yml has no `work:` key: re-run /setup-modelica-skills")
+            out["work_warnings"] += [f"stray file: {f}" for f in wc["stray"][:10]]
+            if len(wc["stray"]) > 10:
+                out["work_warnings"].append(f"... and {len(wc['stray']) - 10} more stray files (python3 tools/mlwork.py check)")
+            out["work_warnings"] += [f"script without header: {f}" for f, _ in wc["scripts_without_header"]]
+        except Exception as exc:  # noqa: BLE001
+            out["work_warnings"].append(f"work-area check failed: {str(exc)[:60]}")
     if out["next"] is None:
         active = [i for i in out["issues"] if i["stage"] != "done"]
         if not out["issues"]:
@@ -168,7 +179,7 @@ def render(st):
         extra = f" ({i['open_tasks']}/{i['total_tasks']} tasks open)" if "open_tasks" in i else ""
         lines.append(f"  {i['id']}  stage {i['stage']}{extra}: {i['why'] or ''}")
         lines += [f"    blocker: {b}" for b in i["blockers"]] + [f"    warning: {w}" for w in i["warnings"]]
-    lines += [f"record: {w}" for w in st["record_warnings"]]
+    lines += [f"record: {w}" for w in st["record_warnings"]] + [f"work: {w}" for w in st["work_warnings"]]
     n = st["next"]
     lines.append(f"next: {n['command'] or '(no command)'}" + (f" for {n['issue']}" if n.get("issue") else "") + f" - {n['why']}")
     return "\n".join(lines)

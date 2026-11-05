@@ -17,6 +17,10 @@ Guidance for working **on this repository** (the skills themselves). For using t
 - A user-invoked skill may call model-invoked skills. It must never call another user-invoked skill.
 - Shared formats (issue front matter, record entries, gate ids) are defined once, in `templates/` and in `verify-physics`, and referenced from elsewhere.
 
+## Keep the repo clean
+
+- Temporary files, scratch scripts, reports and engine output go in `evals/.work/` or `evals/out/` (git-ignored) or the session scratchpad, never loose in the tree. Commit only what a skill, test, ADR or doc cites. For a target library the rule is `templates/work-layout.md` (ADR-0022); `python3 tools/mlwork.py check` lists strays.
+
 ## Before every commit
 
 1. `python3 tools/lint_skills.py` (frontmatter, names, links, user/model-invoked rule).
@@ -29,6 +33,7 @@ Skills are domain-agnostic. Universal improvements are committed to `skills/` (S
 
 ## Known gaps (do not paper over)
 
+- The work area is enforced by a skill line, `tools/mlwork.py check` and a `/startsession` warning; files written outside the allowed roots are found afterwards, not prevented, and no CI job fails on them (ADR-0022).
 - G6b, G7 and the solution-verification sweep are not implemented as gates; at L1 `has been verified` needs a hand-written `solution-verification: done: ...` record entry, which nothing checks beyond its presence.
 - A `// cite:` tag counts anywhere in the model files, not next to the code that uses the source.
 - The record's gate results are bound to file digests and re-derived on every run (RECORD), but a CI job that runs `evals/run_gates.py` is what enforces it; nothing runs it automatically yet.

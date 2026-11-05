@@ -37,3 +37,5 @@ Tolerances come from the issue. Never loosen one to pass, and never remove or lo
 5. On a failure, find the cause (model, issue, or check) before changing anything. Simulation or translation problems go to `diagnosing-simulation`.
 
 A hand-written Python mirror of the equations can be run too. Record its results separately (`mirror.*`): they test the equations and checks, not the Modelica file.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

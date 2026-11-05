@@ -21,3 +21,5 @@ Follow the repo's existing conventions and `.modelica-skills/learned/model-desig
 12. A short documentation annotation: purpose, assumptions, envelope, source keys.
 
 Warning signs: copied equations, parameters without units, direct equation assignment to a connector instead of `connect(...)`, `checkModel` tested without `buildModel`/`simulate`, hand-tuned constants hiding a structural error, `noEvent` sprinkled to quiet the solver.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).
