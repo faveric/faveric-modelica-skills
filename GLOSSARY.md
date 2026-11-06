@@ -59,3 +59,15 @@ The shared language of these skills. Use these words exactly.
 **Work area** — the git-ignored folder (`work.root`, default `.modelica-skills/work/`) where files produced while resolving an issue or task live: auxiliary data, reports, scripts, engine output. Nothing in it is a deliverable (ADR-0022).
 
 **Promotion** — moving a file from the work area into the repository, allowed only when a committed artefact cites it, it reproduces a number in the record, or it is a reusable script with a header (ADR-0022).
+
+**Parent issue** — the issue that owns Define and Conclude; it never builds. Its tasks are vertical slices (ADR-0020).
+
+**Task status** — where a task is in its life, in the task header: `ready-for-agent`, `ready-for-human`, `awaiting-approval`, `done`, `cancelled`. Only `implement` sets `done`, `awaiting-approval` and (on disapproval) `ready-for-agent`.
+
+**Clear closure** — a task an agent may close alone: every named gate passed (none skipped, partial or assumed), credibility `verified`, no unreviewed assumption, nothing loosened or removed, no owner decision pending. Anything else waits for the person.
+
+**Repo manager** — the `/repo-manager` skill: orders the open issues, runs one subagent per released task, relays the person's decisions and the pull requests. It does not build, close, review or conclude.
+
+**Issue branch** — the one branch of an issue (`<issue-lower>-<slug>`), started from `main` or from the latest commit of another issue (`base`). The chain of bases is the **stack**; pull requests are stacked and squash-merged.
+
+**Spin-off issue** — an issue found while building another (`discovered_from`), started from the parent's latest commit. The parent is **paused** until the spin-off concludes `met`, or the owner records `proceeds_without` or fails the parent.

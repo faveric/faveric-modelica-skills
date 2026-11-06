@@ -327,6 +327,18 @@ class TestIssueHelpers(unittest.TestCase):
             (tasks / "T-001-pressure-drop.md").write_text(text.replace("At most 10 lines, written last.", "dp within 3% of the reference."), encoding="utf-8")
             self.assertEqual(mlissue.can_close(head["issue"], issues), [])
 
+    def test_to_tasks_releases_a_task_to_an_agent_or_to_a_human(self):
+        with tempfile.TemporaryDirectory() as t:
+            d = make_project(Path(t) / "p")
+            spec = specmod.load_spec(d / "ISSUE.md")
+            tp = Path(t) / "T.md"
+            tp.write_text(mlissue.task_text(spec, "T-001", "Pressure drop"), encoding="utf-8")
+            head = specmod.load_spec(tp)
+            self.assertEqual((head["type"], head["status"], head["review_round"]), ("AFK", "ready-for-agent", 0))
+            tp.write_text(mlissue.task_text(spec, "T-002", "Choose the fluid", human=True), encoding="utf-8")
+            head = specmod.load_spec(tp)
+            self.assertEqual((head["type"], head["status"]), ("HITL", "ready-for-human"))
+
     def test_failure_chain_history_outcome_and_follows(self):
         placeholder = "**Outcome: met | missed**, measured <value> vs target <value>"
         concl = (ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8")
@@ -397,18 +409,36 @@ class TestBranchKeys(unittest.TestCase):
             p = self.write(t, "ISSUE-002", "branch: issue-002-fix\nbase: ISSUE-001\ndiscovered_from: ISSUE-001\n")
             self.assertEqual(mlissue.check(p)[0], [])
 
-    def test_paused_issue_names_an_existing_issue(self):
+    def test_recovery_issue_branches_from_the_failed_issue(self):
+        concl = (ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace(
+            "**Outcome: met | missed**, measured <value> vs target <value>", "**Outcome: missed**, error 30% vs target 10%")
         with tempfile.TemporaryDirectory() as t:
-            p = self.write(t, "ISSUE-001", "branch: issue-001-x\nbase: main\npaused_for: ISSUE-002\n")
-            self.assertTrue(any("paused_for" in f for f in mlissue.check(p)[0]))
+            self.write(t, "ISSUE-001", "branch: issue-001-x\nbase: main\n")
+            (Path(t) / "ISSUE-001-conclusion.md").write_text(concl, encoding="utf-8")
+            rec = "follows: ISSUE-001\nbaseline: {metric: e, value: 0.3, target: 0.1}\nbranch: issue-002-recover\n"
+            p = self.write(t, "ISSUE-002", rec + "base: main\n")
+            self.assertTrue(any("recovery" in f and "base ISSUE-001" in f for f in mlissue.check(p)[0]))
+            p = self.write(t, "ISSUE-002", rec + "base: ISSUE-001\n")
+            self.assertEqual(mlissue.check(p)[0], [])
+
+    def test_proceeds_without_needs_issue_owner_and_reason(self):
+        with tempfile.TemporaryDirectory() as t:
+            self.write(t, "ISSUE-002", "branch: issue-002-fix\nbase: main\n")
+            p = self.write(t, "ISSUE-001", "branch: issue-001-x\nbase: main\nproceeds_without:\n  - {issue: ISSUE-009, owner: me}\n")
+            fails = mlissue.check(p)[0]
+            self.assertTrue(any("ISSUE-009" in f for f in fails) and any("reason" in f for f in fails))
+            p = self.write(t, "ISSUE-001", "branch: issue-001-x\nbase: main\nproceeds_without:\n"
+                                           "  - {issue: ISSUE-002, owner: me, reason: not needed}\n")
+            self.assertEqual(mlissue.check(p)[0], [])
 
     def test_task_status_must_be_known(self):
         with tempfile.TemporaryDirectory() as t:
             p = Path(t) / "T-001.md"
             p.write_text("---\nid: T-001\nissue: ISSUE-001\nstatus: almost-done\n---\n", encoding="utf-8")
             self.assertTrue(any("almost-done" in f for f in mlissue.check(p)[0]))
-            p.write_text("---\nid: T-001\nissue: ISSUE-001\nstatus: awaiting-approval\n---\n", encoding="utf-8")
-            self.assertEqual(mlissue.check(p)[0], [])
+            for ok in ("ready-for-agent", "ready-for-human", "awaiting-approval", "done", "cancelled"):
+                p.write_text(f"---\nid: T-001\nissue: ISSUE-001\nstatus: {ok}\n---\n", encoding="utf-8")
+                self.assertEqual(mlissue.check(p)[0], [], ok)
 
 
 class TestCanMerge(unittest.TestCase):
@@ -434,6 +464,16 @@ class TestCanMerge(unittest.TestCase):
     def test_task_awaiting_approval_does_not_merge(self):
         with tempfile.TemporaryDirectory() as t:
             self.assertTrue(any("T-001" in m and "approval" in m for m in mlissue.can_merge("ISSUE-001", self.project(t, "met", "awaiting-approval"))))
+
+    def test_cancelled_task_needs_no_answer_but_the_conclusion_must_name_it(self):
+        with tempfile.TemporaryDirectory() as t:
+            issues = self.project(t, "met")
+            tp = Path(t) / "tasks" / "T-002.md"
+            tp.write_text("---\nid: T-002\nissue: ISSUE-001\nstatus: cancelled\n---\n## Answer\n", encoding="utf-8")
+            self.assertTrue(any("T-002" in m and "cancelled" in m for m in mlissue.can_close("ISSUE-001", issues)))
+            c = issues / "ISSUE-001-conclusion.md"
+            c.write_text(c.read_text(encoding="utf-8") + "\nT-002 cancelled: the base fix failed.\n", encoding="utf-8")
+            self.assertEqual(mlissue.can_close("ISSUE-001", issues), [])
 
     def test_no_conclusion_does_not_merge_and_cli_reports_it(self):
         with tempfile.TemporaryDirectory() as t:

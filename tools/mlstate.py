@@ -3,9 +3,10 @@
 
   python3 tools/mlstate.py [--root .] [--json]
 
-Stages of an issue, first match wins: header (does not parse), tasks (none yet), implement (open tasks),
-approval (a task awaits the person), paused (waiting for a fix issue), review (all tasks closed, no conclusion), learn (conclusion, learner not run), approve (candidates waiting), done.
-A task is closed when its "Done when" checkboxes are all ticked. With a tracker other than files the tasks cannot be
+Stages of an issue, first match wins: header (does not parse), paused (a spin-off issue it found is not concluded met),
+tracker (tasks live elsewhere), tasks (none yet), approval (a task awaits the person), implement (open tasks), review (all
+tasks closed, no conclusion), failure (missed, not diagnosed), approve (candidates waiting), learn (conclusion, learner not
+run), done. A task is closed when its status is done or cancelled; with no status its "Done when" boxes decide. With a tracker other than files the tasks cannot be
 read here and the stage is "tracker". The `startsession` skill reads this and suggests the next command; it does not
 change anything.
 """
@@ -45,6 +46,43 @@ def _section(body, heading):
     return m.group(1).strip() if m else ""
 
 
+def _closed(status, boxes):
+    """done/cancelled close a task and any open status keeps it open; with no status the Done-when boxes decide (older tasks)."""
+    if status in mlissue.CLOSED_STATUS:
+        return True
+    return False if status in mlissue.OPEN_STATUS else bool(boxes) and all(b.lower() == "x" for b in boxes)
+
+
+def pause_map(root):
+    """{parent id: [spin-off ids]} from the issues' own headers: a spin-off names its parent in discovered_from."""
+    out = {}
+    idir = Path(root) / "docs" / "issues"
+    for p in sorted(idir.glob("*.md")) if idir.is_dir() else []:
+        if p.name.endswith(mlissue.SUFFIXES):
+            continue
+        try:
+            spec = load_spec(p)
+        except Exception:  # noqa: BLE001 - the header stage reports it
+            continue
+        if spec.get("discovered_from"):
+            out.setdefault(str(spec["discovered_from"]), []).append(str(spec.get("id") or p.stem))
+    return out
+
+
+def pause_reason(spec, spin_offs, issues_dir):
+    """Why an issue waits for its spin-offs, or None. Met spin-offs and ones the owner decided to proceed without do not count."""
+    waived = {str(w.get("issue")) for w in spec.get("proceeds_without") or [] if isinstance(w, dict)}
+    open_ = [(s, mlissue.outcome(issues_dir, s)[0]) for s in spin_offs if s not in waived]
+    open_ = [(s, o) for s, o in open_ if o != "met"]
+    if not open_:
+        return None
+    failed = [s for s, o in open_ if o == "missed"]
+    if failed:
+        return (f"paused: spin-off {', '.join(failed)} concluded missed. Decide: (a) proceed on this base anyway "
+                f"(header `proceeds_without` with owner and reason), or (b) declare this issue failed and cancel its open tasks")
+    return f"paused: waiting for {', '.join(s for s, _ in open_)} to conclude with Outcome met, then resume on its corrected base"
+
+
 def read_tasks(root, cfg):
     tr = cfg.get("tracker") or {"kind": "files", "path": "docs/tasks"}
     if tr.get("kind", "files") != "files":
@@ -59,7 +97,7 @@ def read_tasks(root, cfg):
         question = _section(body, "Physical question")
         tasks.append({"id": str(fm.get("id") or p.stem), "issue": str(fm["issue"]), "file": p.relative_to(root).as_posix(),
                       "blocked_by": [str(x) for x in fm.get("blocked_by") or []], "status": fm.get("status"),
-                      "closed": bool(boxes) and all(b.lower() == "x" for b in boxes),
+                      "closed": _closed(fm.get("status"), boxes),
                       "question": bool(question) and not PLACEHOLDER.match(question)})
     return tasks, None
 
@@ -72,7 +110,7 @@ def next_task(tasks):
     return None
 
 
-def issue_state(root, path, tasks, tracker_kind, entries):
+def issue_state(root, path, tasks, tracker_kind, entries, spin_offs=None):
     fm, _ = _front(read_text(path))
     out = {"file": path.relative_to(root).as_posix(), "id": None, "title": None, "stage": None, "next": None, "why": None,
            "blockers": [], "warnings": []}
@@ -88,9 +126,9 @@ def issue_state(root, path, tasks, tracker_kind, entries):
             out["warnings"].append("the at-a-glance block is stale: run `python3 tools/mlissue.py summary <issue> --write`")
     iid = out["id"]
     out.update(branch=spec.get("branch"), base=spec.get("base"))
-    pf = spec.get("paused_for")
-    if pf and mlissue.outcome(Path(root) / "docs" / "issues", str(pf))[0] != "met":
-        out.update(stage="paused", next=None, why=f"paused: waiting for {pf} to conclude with Outcome met, then resume on its corrected base")
+    why = pause_reason(spec, (spin_offs or {}).get(iid, []), Path(root) / "docs" / "issues")
+    if why:
+        out.update(stage="paused", next=None, why=why)
         return out
     if tracker_kind:
         out.update(stage="tracker", next=None, why=f"tasks live in the {tracker_kind} tracker; read them there and suggest the next one")
@@ -101,12 +139,13 @@ def issue_state(root, path, tasks, tracker_kind, entries):
         out.update(stage="tasks", next="/to-tasks", why="the issue has no tasks")
         return out
     closed = {t["id"] for t in mine if t["closed"]}
-    out["ready"] = [t["id"] for t in mine if t["status"] == "ready-for-agent" and not t["closed"] and all(b in closed for b in t["blocked_by"])]
+    unblocked = lambda status: [t["id"] for t in mine if t["status"] == status and not t["closed"] and all(b in closed for b in t["blocked_by"])]
+    out["ready"], out["ready_human"] = unblocked("ready-for-agent"), unblocked("ready-for-human")
     out["awaiting_approval"] = [t["id"] for t in mine if t["status"] == "awaiting-approval"]
     out["warnings"] += [f"task {t['id']}: unknown status {t['status']!r} (use one of {', '.join(mlissue.TASK_STATUS)})"
                         for t in mine if t["status"] and t["status"] not in mlissue.TASK_STATUS]
     if out["awaiting_approval"]:
-        out.update(stage="approval", next=None, why=f"task {', '.join(out['awaiting_approval'])} awaits your approval: approve it to close it, or disapprove with feedback")
+        out.update(stage="approval", next=None, why=f"task {', '.join(out['awaiting_approval'])} awaits your approval: `/implement approve <task>` or `/implement disapprove <task> \"<feedback>\"`")
         return out
     nxt = next_task(mine)
     if nxt:
@@ -161,9 +200,10 @@ def state(root="."):
         except (OSError, ValueError):
             pass
     idir = root / "docs" / "issues"
+    spin_offs = pause_map(root)
     for p in sorted(idir.glob("*.md")) if idir.is_dir() else []:
         if not p.name.endswith(mlissue.SUFFIXES):
-            out["issues"].append(issue_state(root, p, tasks or [], tracker_kind, entries))
+            out["issues"].append(issue_state(root, p, tasks or [], tracker_kind, entries, spin_offs))
     for rec in sorted((root / "records").glob("*.srmd.xml")) if (root / "records").is_dir() else []:
         try:
             stale = [m for s, m in mlrecord.check(rec, root) if m.startswith("G10")]

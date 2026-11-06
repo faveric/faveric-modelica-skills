@@ -5,7 +5,7 @@
   python3 tools/mlissue.py label ISSUE-001                                         # issue-001
   python3 tools/mlissue.py summary docs/issues/ISSUE-001.md [--write | --check]
   python3 tools/mlissue.py check docs/issues/ISSUE-001.md                          # FAIL blocks saving, WARN goes to Open items
-  python3 tools/mlissue.py task docs/issues/ISSUE-001.md T-001 "Pressure drop" [--builds-on T-000] [--write]   # task body + header slice from the issue
+  python3 tools/mlissue.py task docs/issues/ISSUE-001.md T-001 "Pressure drop" [--builds-on T-000] [--human] [--write]   # task body + header slice from the issue
   python3 tools/mlissue.py answers ISSUE-001 [--dir docs/issues]                   # the tasks' Answers, to build the conclusion from
   python3 tools/mlissue.py history ISSUE-002 [--dir docs/issues]                   # every attempt ISSUE-002 follows, derived from the files
   python3 tools/mlissue.py can-close ISSUE-001 [--dir docs/issues]
@@ -33,7 +33,10 @@ TEMPLATE = Path(__file__).resolve().parents[1] / "templates" / "task.md"
 SLICE = ("level", "model_files", "boundary_conditions", "initial_conditions", "reference_state", "feasibility",
          "fragile_spots", "acceptance", "baseline", "envelope", "tolerances", "sources")
 CONCLUSION_HEADINGS = ("## Answer", "## Results", "## Deviations", "## Accepted gaps", "## Open items", "## Out of scope")
-TASK_STATUS = ("ready-for-agent", "awaiting-approval")  # a task with no status is not released to an agent yet
+# Task lifecycle, tracked in the task header. A task with no status is read by its Done-when boxes (older tasks).
+OPEN_STATUS = ("ready-for-agent", "ready-for-human", "awaiting-approval")
+CLOSED_STATUS = ("done", "cancelled")
+TASK_STATUS = OPEN_STATUS + CLOSED_STATUS
 SUFFIXES = ("-conclusion.md", "-failure.md")  # files next to an issue that are not issues
 # hypothesis lines: "H2 [open] text" in a failure note; "ISSUE-001:H2 ruled-out evidence: ..." in a later conclusion
 HYP = re.compile(r"^\W*(H\d+)\s*\[(open|ruled-out|confirmed)\]\s*(.*)", re.M)
@@ -177,7 +180,7 @@ def _replace(text, block):
 
 
 def branch_problems(spec, issues_dir):
-    """One branch per issue (ADR-0023): named after the issue, started from main or from the issue it was found in."""
+    """One branch per issue: named after the issue, started from main or from the issue it was found in."""
     out, iid = [], str(spec.get("id"))
     exists = lambda i: bool(i) and issue_file(issues_dir, str(i)) is not None
     if spec.get("branch") and not str(spec["branch"]).startswith(label(iid) + "-"):
@@ -190,8 +193,13 @@ def branch_problems(spec, issues_dir):
         out.append(f"discovered_from {found}: no such issue in {issues_dir}")
     elif found and base != found:
         out.append(f"discovered_from {found} needs base {found}: the new branch starts from that issue's latest commit")
-    if spec.get("paused_for") and not exists(spec["paused_for"]):
-        out.append(f"paused_for {spec['paused_for']}: no such issue in {issues_dir}")
+    if spec.get("follows") and base and base != spec["follows"]:
+        out.append(f"recovery issue (follows {spec['follows']}) needs base {spec['follows']}: it starts from the failed work, which never merged")
+    for pw in spec.get("proceeds_without") or []:
+        pw = pw if isinstance(pw, dict) else {}
+        if not exists(pw.get("issue")):
+            out.append(f"proceeds_without {pw.get('issue')}: no such issue in {issues_dir}")
+        out += [f"proceeds_without {pw.get('issue')}: {k} missing (an owner decision)" for k in ("owner", "reason") if not pw.get(k)]
     return out
 
 
@@ -241,10 +249,11 @@ def check(path):
     return fails, warns
 
 
-def task_text(spec, task_id, title, builds_on=None, prev_answer=""):
+def task_text(spec, task_id, title, builds_on=None, prev_answer="", human=False):
     _, fm, body = read_text(TEMPLATE).split("---", 2)
     head = yaml.safe_load(fm)
-    head.update(id=task_id, issue=spec["id"], title=task_title(spec["id"], task_id, title))
+    head.update(id=task_id, issue=spec["id"], title=task_title(spec["id"], task_id, title),
+                type="HITL" if human else "AFK", status="ready-for-human" if human else "ready-for-agent", review_round=0)
     if builds_on:
         head.update(builds_on=builds_on, blocked_by=[builds_on])
         quoted = "\n".join("> " + ln for ln in (prev_answer or "(no Answer yet)").splitlines())
@@ -262,8 +271,8 @@ def _section(text, heading):
     return m.group(1).strip() if m else ""
 
 
-def task_answers(issue_id, tasks_dir):
-    """[(task id, file, Answer text)] for the task files of this issue."""
+def task_headers(issue_id, tasks_dir):
+    """[(task id, file, header, text)] for the task files of this issue."""
     out = []
     for p in sorted(Path(tasks_dir).glob("*.md")) if Path(tasks_dir).is_dir() else []:
         text = read_text(p)
@@ -272,8 +281,13 @@ def task_answers(issue_id, tasks_dir):
         except (IndexError, yaml.YAMLError):
             continue
         if isinstance(fm, dict) and str(fm.get("issue")) == issue_id:
-            out.append((str(fm.get("id") or p.stem), p, _section(text, "Answer")))
+            out.append((str(fm.get("id") or p.stem), p, fm, text))
     return out
+
+
+def task_answers(issue_id, tasks_dir):
+    """[(task id, file, Answer text)] for the task files of this issue."""
+    return [(tid, p, _section(text, "Answer")) for tid, p, _, text in task_headers(issue_id, tasks_dir)]
 
 
 def can_close(issue_id, directory="docs/issues", tasks=None):
@@ -292,26 +306,25 @@ def can_close(issue_id, directory="docs/issues", tasks=None):
         follows = None
     if follows and "## Hypotheses tested" not in text:
         out.append(f"{p}: section '## Hypotheses tested' missing (this issue follows {follows})")
-    for tid, tp, ans in task_answers(issue_id, tasks or Path(directory).parent / "tasks"):
+    for tid, tp, fm, tx in task_headers(issue_id, tasks or Path(directory).parent / "tasks"):
+        if fm.get("status") == "cancelled":  # no Answer, but the conclusion must say which task and why
+            if tid not in text:
+                out.append(f"{p}: task {tid} is cancelled: name it and the reason in the conclusion (Deviations)")
+            continue
+        ans = _section(tx, "Answer")
         if not ans or ans.startswith("<") or ans.startswith("At most 10 lines"):
             out.append(f"{tp}: task {tid} has no Answer")
     return out
 
 
 def can_merge(issue_id, directory="docs/issues", tasks=None):
-    """Why the issue's PR may not be merged yet (ADR-0023): closable, Outcome met, no task waiting for the person."""
+    """Why the issue's PR may not be merged yet: closable, Outcome met, no task waiting for the person."""
     out = can_close(issue_id, directory, tasks)
     o = outcome(directory, issue_id)[0]
     if not out and o != "met":
         out.append(f"Outcome is {o}: do not merge; suggest /interview-failed-issue")
-    tdir = Path(tasks or Path(directory).parent / "tasks")
-    for p in sorted(tdir.glob("*.md")) if tdir.is_dir() else []:
-        try:
-            fm = yaml.safe_load(read_text(p).split("---", 2)[1]) or {}
-        except (IndexError, yaml.YAMLError):
-            continue
-        if isinstance(fm, dict) and str(fm.get("issue")) == issue_id and fm.get("status") == "awaiting-approval":
-            out.append(f"task {fm.get('id') or p.stem} awaits approval")
+    out += [f"task {tid} awaits approval" for tid, _, fm, _ in task_headers(issue_id, tasks or Path(directory).parent / "tasks")
+            if fm.get("status") == "awaiting-approval"]
     return out
 
 
@@ -323,6 +336,7 @@ def main(argv=None):
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--dir", default="docs/issues")
     ap.add_argument("--tasks", default="docs/tasks")
+    ap.add_argument("--human", action="store_true", help="the task needs a person (task command): type HITL, status ready-for-human")
     ap.add_argument("--builds-on", help="task id of the previous slice this one extends (task command)")
     a = ap.parse_args(argv)
     if a.cmd == "title":
@@ -341,7 +355,7 @@ def main(argv=None):
     if a.cmd == "task":
         spec = load_spec(a.args[0])
         prev = next((ans for tid, _, ans in task_answers(spec["id"], a.tasks) if tid == a.builds_on), "")
-        text = task_text(spec, a.args[1], " ".join(a.args[2:]), a.builds_on, prev)
+        text = task_text(spec, a.args[1], " ".join(a.args[2:]), a.builds_on, prev, a.human)
         if not a.write:
             print(text)
             return 0

@@ -7,7 +7,7 @@ The skills follow the phase structure of the Credible Simulation Process in SSP-
 | Analysis of simulation task | `interview-model` | Units declared; envelope variables named; every correlation has a source key; intended use level set |
 | Requirements | `to-issue` | Issue front matter parses; every cited validity range contains the envelope or documents an extrapolation; tolerances declared |
 | Design specification | `to-tasks` | Every gate in the issue is the acceptance criterion of a task; blocking edges acyclic |
-| Implementation | `implement` (+ `verify-physics`, `cite-source`, `credibility-record`, `model-design`) | Gates G1–G5, G8–G10 green; G6 run where required |
+| Implementation | `implement` (+ `verify-physics`, `cite-source`, `credibility-record`, `model-design`) | Gates run and recorded; credibility stated in the task Answer (ADR-0020) |
 | Execution | engine, via the engine contract | Engine, version and date written into the record |
 | Evaluation | `verify-physics`, `review-model` | Status does not exceed evidence |
 | Fulfilment | `review-model`, record close-out | Issue's intended use is met or the shortfall is stated |
@@ -32,9 +32,9 @@ A system issue lists the components it uses and their record versions. If a comp
 
 `review-model` writes `docs/issues/<id>-conclusion.md`. Then `learn-from-issue` proposes at most three lessons or library skills from that issue's evidence, and `approve-lessons` lets a person approve, edit or reject each before it enters the library (ADR-0018).
 
-## Working an issue with the orchestrator
+## Working issues with the repo manager
 
-`/issue-orchestrator` (ADR-0023) runs the ready tasks of an issue one subagent at a time on the issue's branch, closes a task on clear closure or hands it to the person (`awaiting-approval`), then runs one review and the conclusion for the whole issue. A defect found in the base pauses the issue (`paused_for`) and starts a fix issue from its latest commit; pull requests are stacked and squash-merged when `mlissue can-merge` passes.
+`/repo-manager` orders the open issues (a spin-off before the parent it pauses, a base before what is stacked on it, then by stage), asks the person to confirm, and runs one subagent per released task on the issue's branch. It coordinates; closure stays in `implement` (a task ends `done` or `awaiting-approval`), the review and conclusion in `review-model`. A defect found in the base pauses the issue and starts a spin-off issue from its latest commit; pull requests are stacked and squash-merged when `mlissue can-merge` passes. The diagrams are in the README.
 
 ## Accepting a gap
 

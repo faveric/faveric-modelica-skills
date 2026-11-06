@@ -12,7 +12,7 @@ Start from `templates/issue.md`. Keep the header keys exactly: the checks read t
 
 The body holds only: the Overview (one paragraph written by a person: what is modelled, the decision, what it must not be used for), Assumptions (one line each, with what it costs), Out of scope, Open items.
 
-**A recovery issue** (from `docs/issues/<id>-failure.md` with decision recover) sets `follows: <id>` and `baseline: {metric, value, target}` from the failed conclusion, reuses its `model_files`, and seeds its Overview and first slice from the failure note's open hypotheses. The generated block then carries the history of every earlier attempt.
+**A recovery issue** (from `docs/issues/<id>-failure.md` with decision recover) sets `follows: <id>` and `baseline: {metric, value, target}` from the failed conclusion, reuses its `model_files`, and seeds its Overview and first slice from the failure note's open hypotheses. The generated block then carries the history of every earlier attempt. It starts from the failed work: `base: <failed id>` and no `discovered_from` (the failed PR is closed unmerged, this one targets `main`).
 
 A target is checked for feasibility against the physical limit (for example the isentropic outlet state) before any tolerance is set around it. If it cannot be reached, set `reachable: false` and say so in Open items.
 

@@ -1,6 +1,6 @@
 # 0023. Issue orchestrator, a branch per issue, and one review per issue
 
-- **Status**: Accepted
+- **Status**: Superseded by 0024
 - **Date**: 2026-11-06
 
 ## Context

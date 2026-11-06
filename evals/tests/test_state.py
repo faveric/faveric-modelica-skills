@@ -130,9 +130,28 @@ class TestTaskStatus(StateCase):
         self.task("001.md", "T-001", [True], status="awaiting-approval")
         s = self.stage()
         self.assertEqual((s["stage"], s["next"], s["awaiting_approval"]), ("approval", None, ["T-001"]))
-        self.assertIn("approval", s["why"])
-        self.task("001.md", "T-001", [True])  # approved: status cleared, task closed
+        self.assertIn("/implement approve", s["why"])
+        self.task("001.md", "T-001", [True], status="done")  # approved: implement sets done
         self.assertEqual(self.stage()["next"], "/review-model")
+
+    def test_done_and_cancelled_close_a_task_whatever_the_boxes_say(self):
+        self.issue()
+        self.task("001.md", "T-001", [False], status="done")
+        self.task("002.md", "T-002", [False], status="cancelled")
+        s = self.stage()
+        self.assertEqual((s["stage"], s["next"]), ("review", "/review-model"))
+
+    def test_reopened_task_is_open_again_even_with_ticked_boxes(self):
+        self.issue()
+        self.task("001.md", "T-001", [True], status="ready-for-agent")
+        s = self.stage()
+        self.assertEqual((s["stage"], s["ready"]), ("implement", ["T-001"]))
+
+    def test_tasks_for_a_human_are_listed_apart_from_agent_tasks(self):
+        self.issue()
+        self.task("001.md", "T-001", [False], status="ready-for-human")
+        s = self.stage()
+        self.assertEqual((s["ready"], s["ready_human"]), ([], ["T-001"]))
 
     def test_status_must_be_known(self):
         self.issue()
@@ -155,8 +174,13 @@ class TestBranches(StateCase):
         self.assertEqual(got["ISSUE-001"]["stack"], ["main", "issue-001-corr"])
         self.assertEqual(got["ISSUE-002"]["stack"], ["main", "issue-001-corr", "issue-002-fix"])
 
-    def test_parent_is_paused_until_the_fix_is_concluded_met(self):
-        self.put("ISSUE-001", "branch: issue-001-corr\nbase: main\npaused_for: ISSUE-002\n")
+    def conclude(self, iid, outcome):
+        concl = (ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace(
+            "**Outcome: met | missed**, measured <value> vs target <value>", f"**Outcome: {outcome}**, error 4% vs target 10%")
+        (self.d / "docs" / "issues" / f"{iid}-conclusion.md").write_text(concl, encoding="utf-8")
+
+    def test_parent_is_paused_while_a_spin_off_is_open_and_resumes_when_it_is_met(self):
+        self.put("ISSUE-001", "branch: issue-001-corr\nbase: main\n")
         self.put("ISSUE-002", "branch: issue-002-fix\nbase: ISSUE-001\ndiscovered_from: ISSUE-001\n")
         self.task("001.md", "T-001", [False], issue="ISSUE-001")
         self.task("002.md", "T-002", [False], issue="ISSUE-002")
@@ -166,10 +190,22 @@ class TestBranches(StateCase):
         nxt = mlstate.state(self.d)["next"]
         self.assertEqual((nxt["command"], nxt["issue"]), ("/implement", "ISSUE-002"))  # the fix comes first, not the paused parent
         self.task("002.md", "T-002", [True], issue="ISSUE-002")
-        concl = (ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace(
-            "**Outcome: met | missed**, measured <value> vs target <value>", "**Outcome: met**, error 4% vs target 10%")
-        (self.d / "docs" / "issues" / "ISSUE-002-conclusion.md").write_text(concl, encoding="utf-8")
+        self.conclude("ISSUE-002", "met")
         self.assertEqual(self.issues()["ISSUE-001"]["stage"], "implement")  # resumes on the corrected base
+
+    def test_failed_spin_off_keeps_the_parent_paused_until_the_owner_decides(self):
+        self.put("ISSUE-001", "branch: issue-001-corr\nbase: main\n")
+        self.put("ISSUE-002", "branch: issue-002-fix\nbase: ISSUE-001\ndiscovered_from: ISSUE-001\n")
+        self.task("001.md", "T-001", [False], issue="ISSUE-001")
+        self.task("002.md", "T-002", [True], issue="ISSUE-002")
+        self.conclude("ISSUE-002", "missed")
+        got = self.issues()["ISSUE-001"]
+        self.assertEqual(got["stage"], "paused")
+        self.assertIn("missed", got["why"])
+        self.assertIn("proceeds_without", got["why"])  # option (a); option (b) is cancelling the parent's open tasks
+        self.put("ISSUE-001", "branch: issue-001-corr\nbase: main\nproceeds_without:\n"
+                              "  - {issue: ISSUE-002, owner: me, reason: base fix not needed here}\n")
+        self.assertEqual(self.issues()["ISSUE-001"]["stage"], "implement")
 
 
 class TestCurrentBranch(StateCase):
