@@ -15,6 +15,8 @@ initial_conditions:
 reference_state:             # ADR-0012; one id per fluid interface convention
   id: <e.g. IF97-ref | none>
   medium: <e.g. constant-property water>
+branch: null                 # one branch per issue: <issue-lower>-<slug>
+base: main                   # main, or the id of the issue this one starts from (a spin-off found while building it, or a recovery issue)
 follows: null                # recovery issues only: id of the closed issue (Outcome: missed) this one tries to recover
 baseline: null               # recovery issues only: {metric: <name>, value: <measured by the failed issue>, target: <required>}
 acceptance:                  # what "good enough" means, fixed before building; a miss is a measured value beyond target

@@ -3,9 +3,11 @@
 
   python3 tools/mlstate.py [--root .] [--json]
 
-Stages of an issue, first match wins: header (does not parse), tasks (none yet), implement (open tasks),
-review (all tasks closed, no conclusion), learn (conclusion, learner not run), approve (candidates waiting), done.
-A task is closed when its "Done when" checkboxes are all ticked. With a tracker other than files the tasks cannot be
+Stages of an issue, first match wins: header (does not parse), tracker (tasks live elsewhere), tasks (none yet), approval
+(a task awaits the person), implement (open tasks; a task can wait for another task or for an issue concluded met), review
+(all tasks closed, no conclusion), failure (missed, not diagnosed), approve (candidates waiting), learn (conclusion,
+learner not run), done. A task is closed when its "Done when" boxes are all ticked. Each issue also carries its goal (the
+header's decision), its opening order and what it waits for ('#N' in a task's blocked_by names the task by its file number). With a tracker other than files the tasks cannot be
 read here and the stage is "tracker". The `startsession` skill reads this and suggests the next command; it does not
 change anything.
 """
@@ -45,11 +47,29 @@ def _section(body, heading):
     return m.group(1).strip() if m else ""
 
 
+def _closed(boxes):
+    """A task is closed when every Done-when box is ticked."""
+    return bool(boxes) and all(b.lower() == "x" for b in boxes)
+
+
+def blocker_text(blocker, tasks_by_number):
+    """None when the task a '#N' names is closed, else why it still blocks."""
+    m = re.fullmatch(r"#(\d+)", blocker)
+    t = tasks_by_number.get(int(m.group(1))) if m else None
+    if t is None:
+        return f"{blocker} (unknown: no task with that number)"
+    return None if t["closed"] else f"{blocker} (open)"
+
+
+def tasks_dir(root, cfg):
+    return Path(root) / ((cfg.get("tracker") or {}).get("path") or "docs/tasks")
+
+
 def read_tasks(root, cfg):
     tr = cfg.get("tracker") or {"kind": "files", "path": "docs/tasks"}
     if tr.get("kind", "files") != "files":
         return None, tr.get("kind")
-    d = Path(root) / (tr.get("path") or "docs/tasks")
+    d = tasks_dir(root, cfg)
     tasks = []
     for p in sorted(d.glob("*.md")) if d.is_dir() else []:
         fm, body = _front(read_text(p))
@@ -57,31 +77,28 @@ def read_tasks(root, cfg):
             continue
         boxes = re.findall(r"^\s*-\s*\[([ xX])\]", _section(body, "Done when"), flags=re.M)
         question = _section(body, "Physical question")
-        tasks.append({"id": str(fm.get("id") or p.stem), "issue": str(fm["issue"]), "file": p.relative_to(root).as_posix(),
-                      "blocked_by": [str(x) for x in fm.get("blocked_by") or []],
-                      "closed": bool(boxes) and all(b.lower() == "x" for b in boxes),
+        named = mlissue.parse_name(p.name)
+        tasks.append({"id": str(fm.get("id") or p.stem), "number": named[0] if named else None, "issue": str(fm["issue"]), "file": p.relative_to(root).as_posix(),
+                      "blocked_by": [str(x) for x in fm.get("blocked_by") or []], "status": fm.get("status"),
+                      "closed": _closed(boxes),
                       "question": bool(question) and not PLACEHOLDER.match(question)})
     return tasks, None
 
 
-def next_task(tasks):
-    closed = {t["id"] for t in tasks if t["closed"]}
-    for t in tasks:
-        if not t["closed"] and all(b in closed for b in t["blocked_by"]):
-            return t
-    return None
+def next_task(tasks, waits):
+    return next((t for t in tasks if not t["closed"] and not waits(t)), None)
 
 
-def issue_state(root, path, tasks, tracker_kind, entries):
-    fm, _ = _front(read_text(path))
+def issue_state(root, path, tasks, tracker_kind, entries, tdir):
     out = {"file": path.relative_to(root).as_posix(), "id": None, "title": None, "stage": None, "next": None, "why": None,
-           "blockers": [], "warnings": []}
+           "blockers": [], "warnings": [], "waiting": [], "goal": None}
     try:
         spec = load_spec(path)
     except Exception as exc:  # noqa: BLE001 - any parse failure is the same finding
-        out.update(id=path.stem, stage="header", next="/to-issue", why=f"the header does not parse: {str(exc)[:80]}")
+        named = mlissue.parse_name(path.name)
+        out.update(id=named[1] if named else path.stem, stage="header", next="/to-issue", why=f"the header does not parse: {str(exc)[:80]}")
         return out
-    out.update(id=str(spec.get("id") or path.stem), title=spec.get("title"), level=spec.get("level"))
+    out.update(id=str(spec.get("id") or path.stem), title=spec.get("title"), level=spec.get("level"), goal=spec.get("decision"))
     text = read_text(path)
     if mlissue.BEGIN.split(" (")[0] in text:
         if mlissue._replace(text, mlissue.summary_block(spec, path.parent)) != text:
@@ -91,11 +108,22 @@ def issue_state(root, path, tasks, tracker_kind, entries):
         out.update(stage="tracker", next=None, why=f"tasks live in the {tracker_kind} tracker; read them there and suggest the next one")
         return out
     mine = [t for t in tasks if t["issue"] == iid]
-    concl = mlissue.can_close(iid, str(Path(root) / "docs" / "issues"))
-    if not mine and concl:
+    idir = Path(root) / "docs" / "issues"
+    unconcluded = mlissue.can_close(iid, str(idir), tasks=tdir)  # problems found: no conclusion written yet
+    if not mine and unconcluded:
         out.update(stage="tasks", next="/to-tasks", why="the issue has no tasks")
         return out
-    nxt = next_task(mine)
+    by_number = {t["number"]: t for t in tasks if t["number"] is not None}
+    waits = lambda t: [r for b in t["blocked_by"] if (r := blocker_text(b, by_number))]
+    out["awaiting_approval"] = [t["id"] for t in mine if t["status"] == "awaiting-approval" and not t["closed"]]
+    out["warnings"] += [f"task {t['id']}: unknown status {t['status']!r} (the only status is {', '.join(mlissue.TASK_STATUS)})"
+                        for t in mine if t["status"] and t["status"] not in mlissue.TASK_STATUS]
+    out["waiting"] = [f"{t['id']} waits for {r}" for t in mine if not t["closed"] for r in waits(t)]
+    if out["awaiting_approval"]:
+        out.update(stage="approval", next=None, why=f"task {', '.join(out['awaiting_approval'])} awaits your approval: run `/implement` on it "
+                   "and say 'approved' (the agent ticks the boxes) or give feedback")
+        return out
+    nxt = next_task(mine, waits)
     if nxt:
         out.update(stage="implement", next="/implement", why=f"task {nxt['id']} is the first open task with its blockers closed",
                    task=nxt["id"], open_tasks=sum(1 for t in mine if not t["closed"]), total_tasks=len(mine))
@@ -103,13 +131,17 @@ def issue_state(root, path, tasks, tracker_kind, entries):
             out["blockers"].append(f"task {nxt['id']} has no physical question (fill the section before building)")
         return out
     if any(not t["closed"] for t in mine):
-        out.update(stage="implement", next=None, why="open tasks exist but each is blocked by another open task: the order has a cycle")
-        out["blockers"].append("no task can start")
+        unknown = [r for t in mine if not t["closed"] for r in waits(t) if "unknown" in r]
+        if unknown:
+            out.update(stage="implement", next=None, why="every open task waits, and a blocker names no task: fix blocked_by")
+            out["blockers"] += unknown
+        else:
+            out.update(stage="implement", next=None, why="open tasks exist but each is blocked by another open task: the order has a cycle")
+            out["blockers"].append("no task can start")
         return out
-    if concl:
+    if unconcluded:
         out.update(stage="review", next="/review-model", why="all tasks are closed and there is no conclusion yet")
         return out
-    idir = Path(root) / "docs" / "issues"
     if mlissue.outcome(idir, iid)[0] == "missed" and not (idir / f"{iid}-failure.md").exists():
         out.update(stage="failure", next="/interview-failed-issue", why="the target was missed and the cause is not diagnosed yet")
         return out
@@ -140,8 +172,12 @@ def state(root="."):
             pass
     idir = root / "docs" / "issues"
     for p in sorted(idir.glob("*.md")) if idir.is_dir() else []:
-        if not p.name.endswith(mlissue.SUFFIXES):
-            out["issues"].append(issue_state(root, p, tasks or [], tracker_kind, entries))
+        if p.name.endswith(mlissue.SUFFIXES):
+            continue
+        if not mlissue.parse_name(p.name):
+            out["work_warnings"].append(f"{p.relative_to(root).as_posix()} is not named like an issue (python3 tools/mlissue.py new issue \"<title>\")")
+            continue
+        out["issues"].append(issue_state(root, p, tasks or [], tracker_kind, entries, tasks_dir(root, cfg)))
     for rec in sorted((root / "records").glob("*.srmd.xml")) if (root / "records").is_dir() else []:
         try:
             stale = [m for s, m in mlrecord.check(rec, root) if m.startswith("G10")]
@@ -160,14 +196,17 @@ def state(root="."):
             out["work_warnings"] += [f"script without header: {f}" for f, _ in wc["scripts_without_header"]]
         except Exception as exc:  # noqa: BLE001
             out["work_warnings"].append(f"work-area check failed: {str(exc)[:60]}")
+    for n, i in enumerate(out["issues"], 1):
+        i["opened"] = n  # file names start with the running number, so the file order is the opening order
     if out["next"] is None:
         active = [i for i in out["issues"] if i["stage"] != "done"]
+        pick = next((i for i in active if i.get("next")), active[0] if active else None)
         if not out["issues"]:
             out["next"] = {"command": "/interview-model", "why": "no issue yet: start a new piece of work"}
-        elif active and active[0].get("next"):
-            out["next"] = {"command": active[0]["next"], "issue": active[0]["id"], "why": active[0]["why"]}
-        elif active:
-            out["next"] = {"command": None, "issue": active[0]["id"], "why": active[0]["why"]}
+        elif pick and pick.get("next"):
+            out["next"] = {"command": pick["next"], "issue": pick["id"], "why": pick["why"]}
+        elif pick:
+            out["next"] = {"command": None, "issue": pick["id"], "why": pick["why"]}
         else:
             out["next"] = {"command": "/interview-model", "why": "every issue is done: start new work"}
     return out
@@ -177,8 +216,10 @@ def render(st):
     lines = [f"configured: {'yes' if st['configured'] else 'no'}", f"issues: {len(st['issues'])}"]
     for i in st["issues"]:
         extra = f" ({i['open_tasks']}/{i['total_tasks']} tasks open)" if "open_tasks" in i else ""
-        lines.append(f"  {i['id']}  stage {i['stage']}{extra}: {i['why'] or ''}")
-        lines += [f"    blocker: {b}" for b in i["blockers"]] + [f"    warning: {w}" for w in i["warnings"]]
+        lines.append(f"  {i['id']}  stage {i['stage']}{extra}  opened {i.get('opened', '?')}: {i['why'] or ''}")
+        if i.get("goal"):
+            lines.append(f"    goal: {i['goal']}")
+        lines += [f"    waits: {w}" for w in i["waiting"]] + [f"    blocker: {b}" for b in i["blockers"]] + [f"    warning: {w}" for w in i["warnings"]]
     lines += [f"record: {w}" for w in st["record_warnings"]] + [f"work: {w}" for w in st["work_warnings"]]
     n = st["next"]
     lines.append(f"next: {n['command'] or '(no command)'}" + (f" for {n['issue']}" if n.get("issue") else "") + f" - {n['why']}")

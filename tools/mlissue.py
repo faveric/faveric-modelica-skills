@@ -5,12 +5,13 @@
   python3 tools/mlissue.py label ISSUE-001                                         # issue-001
   python3 tools/mlissue.py summary docs/issues/ISSUE-001.md [--write | --check]
   python3 tools/mlissue.py check docs/issues/ISSUE-001.md                          # FAIL blocks saving, WARN goes to Open items
-  python3 tools/mlissue.py task docs/issues/ISSUE-001.md T-001 "Pressure drop" [--builds-on T-000] [--write]   # task body + header slice from the issue
+  python3 tools/mlissue.py task docs/issues/ISSUE-001.md T-001 "Pressure drop" [--builds-on T-000] [--number N] [--write]   # task body + header slice from the issue
+  python3 tools/mlissue.py new issue "Heat exchanger model" [--number N] | new task ISSUE-001 "Pressure drop"   # path of the next file: 00002 [ISSUE-001] [T-001] - Pressure drop.md
   python3 tools/mlissue.py answers ISSUE-001 [--dir docs/issues]                   # the tasks' Answers, to build the conclusion from
   python3 tools/mlissue.py history ISSUE-002 [--dir docs/issues]                   # every attempt ISSUE-002 follows, derived from the files
   python3 tools/mlissue.py can-close ISSUE-001 [--dir docs/issues]
 
-The id formats live in .modelica-skills/config.yml under `ids` (defaults below). The at-a-glance block between
+The id formats are the defaults below (the config's `ids` is for the skills' wording only). The at-a-glance block between
 the markers is generated from the machine-read header, so the readable summary cannot disagree with it.
 """
 import argparse, re, sys
@@ -32,6 +33,7 @@ TEMPLATE = Path(__file__).resolve().parents[1] / "templates" / "task.md"
 SLICE = ("level", "model_files", "boundary_conditions", "initial_conditions", "reference_state", "feasibility",
          "fragile_spots", "acceptance", "baseline", "envelope", "tolerances", "sources")
 CONCLUSION_HEADINGS = ("## Answer", "## Results", "## Deviations", "## Accepted gaps", "## Open items", "## Out of scope")
+TASK_STATUS = ("awaiting-approval",)  # a task is open until its Done-when boxes are ticked; this marks one that waits for the person
 SUFFIXES = ("-conclusion.md", "-failure.md")  # files next to an issue that are not issues
 # hypothesis lines: "H2 [open] text" in a failure note; "ISSUE-001:H2 ruled-out evidence: ..." in a later conclusion
 HYP = re.compile(r"^\W*(H\d+)\s*\[(open|ruled-out|confirmed)\]\s*(.*)", re.M)
@@ -58,11 +60,49 @@ def _table(head, rows):
     return "\n".join(out)
 
 
+NAME = re.compile(r"^(\d{5}) \[([^\]]+)\](?: \[([^\]]+)\])? - ")
+UNSAFE = re.compile(r'[\\/:*?"<>|]+')
+
+
+def file_name(number, issue, task, title):
+    """'00002 [ISSUE-001] [T-001] - Title.md': one running number for issues and tasks, as a tracker would give."""
+    ids = f"[{issue}]" + (f" [{task}]" if task else "")
+    return f"{number:05d} {ids} - {' '.join(UNSAFE.sub(' ', title).split())}.md"
+
+
+def parse_name(name):
+    """(number, issue id, task id or None) from a tracker file name, else None (a conclusion or failure note, for one)."""
+    m = NAME.match(name)
+    return (int(m.group(1)), m.group(2), m.group(3)) if m else None
+
+
+def _named(*dirs):
+    return [(p, n) for d in dirs if Path(d).is_dir() for p in sorted(Path(d).glob("*.md")) if (n := parse_name(p.name))]
+
+
+def next_number(*dirs):
+    return max((n[0] for _, n in _named(*dirs)), default=0) + 1
+
+
+def _next_id(fmt, ids):
+    nums = [int(m.group(1)) for i in ids if (m := re.search(r"(\d+)$", i))]
+    return fmt.format(n=max(nums, default=0) + 1)
+
+
+def next_issue_id(issues_dir):
+    return _next_id(IDS["issue"], [n[1] for _, n in _named(issues_dir) if n[2] is None])
+
+
+def next_task_id(issue_id, tasks_dir):
+    return _next_id(IDS["task"], [n[2] for _, n in _named(tasks_dir) if n[1] == issue_id and n[2]])
+
+
 def issue_file(issues_dir, issue_id):
-    d = Path(issues_dir)
-    if (d / f"{issue_id}.md").exists():
-        return d / f"{issue_id}.md"
-    return next((p for p in sorted(d.glob(f"{issue_id}*.md")) if not p.name.endswith(SUFFIXES)), None) if d.is_dir() else None
+    return next((p for p, n in _named(issues_dir) if n[1] == issue_id and n[2] is None), None)
+
+
+def task_number(issue_id, task_id, tasks_dir):
+    return next((n[0] for _, n in _named(tasks_dir) if n[1] == issue_id and n[2] == task_id), None)
 
 
 def _answer_outcome(text):
@@ -174,13 +214,62 @@ def _replace(text, block):
     return None if not m else text[: m.start()] + block + text[m.end():]
 
 
-def check(path):
+def branch_problems(spec, issues_dir):
+    """One branch per issue: named after the issue, started from main or from the latest commit of the issue it follows from."""
+    out, iid = [], str(spec.get("id"))
+    exists = lambda i: bool(i) and issue_file(issues_dir, str(i)) is not None
+    if spec.get("branch") and not str(spec["branch"]).startswith(label(iid) + "-"):
+        out.append(f"branch {spec['branch']!r} must start with {label(iid)}- (one branch per issue)")
+    base = spec.get("base")
+    if base and base != "main" and (base == iid or not exists(base)):
+        out.append(f"base {base} is neither main nor another issue in {issues_dir}")
+    return out
+
+
+def task_problems(spec, path, issues_dir=None):
+    out, st = [], spec.get("status")
+    tasks_dir = Path(path).parent
+    issues_dir = issues_dir or tasks_dir.parent / "issues"
+    if st and st not in TASK_STATUS:
+        out.append(f"status {st!r} is not one of {', '.join(TASK_STATUS)}")
+    named = parse_name(Path(path).name)
+    if named and named[2] and (named[1], named[2]) != (str(spec.get("issue")), str(spec.get("id"))):
+        out.append(f"the file name says {named[1]} {named[2]} but the header says {spec.get('issue')} {spec.get('id')}")
+    numbers = {n[0] for _, n in _named(tasks_dir, issues_dir)}
+    for b in spec.get("blocked_by") or []:
+        m = re.fullmatch(r"#(\d+)", str(b))
+        if not m:
+            out.append(f"blocked_by {b!r}: name the task or issue by its number, as #N")
+        elif named and int(m.group(1)) == named[0]:
+            out.append(f"blocked_by {b}: a task cannot wait for itself")
+        elif int(m.group(1)) not in numbers:
+            out.append(f"blocked_by {b}: no task or issue with that number in {tasks_dir} or {issues_dir}")
+    return out
+
+
+def used(number, issue_id, task_id, *dirs):
+    """Why a new file cannot take this number or task id, or None."""
+    for p, n in _named(*dirs):
+        if n[0] == number:
+            return f"number {number} is already used by {p.name}"
+        if task_id and (n[1], n[2]) == (issue_id, task_id):
+            return f"{task_id} already exists for {issue_id} ({p.name})"
+    return None
+
+
+def check(path, issues_dir=None):
     """(failures, warnings). Failures block saving; warnings must be listed under Open items."""
     fails, warns = [], []
     try:
         spec = load_spec(path)
     except Exception as e:  # header unparseable
         return [f"header does not parse: {e}"], []
+    if "issue" in spec:  # a task file: its status and what it waits for
+        return task_problems(spec, path, issues_dir), []
+    named = parse_name(Path(path).name)
+    if named and named[2] is None and named[1] != str(spec.get("id")):
+        fails.append(f"the file name says {named[1]} but the header id is {spec.get('id')}")
+    fails += branch_problems(spec, issues_dir or Path(path).parent)
     env = {e["var"]: e for e in spec.get("envelope") or []}
     for s in spec.get("sources") or []:
         for v in s.get("validity") or []:
@@ -216,12 +305,12 @@ def check(path):
     return fails, warns
 
 
-def task_text(spec, task_id, title, builds_on=None, prev_answer=""):
+def task_text(spec, task_id, title, builds_on=None, prev_answer="", builds_on_number=None):
     _, fm, body = read_text(TEMPLATE).split("---", 2)
     head = yaml.safe_load(fm)
     head.update(id=task_id, issue=spec["id"], title=task_title(spec["id"], task_id, title))
     if builds_on:
-        head.update(builds_on=builds_on, blocked_by=[builds_on])
+        head.update(builds_on=builds_on, blocked_by=[f"#{builds_on_number}"] if builds_on_number else [])
         quoted = "\n".join("> " + ln for ln in (prev_answer or "(no Answer yet)").splitlines())
         body = body.replace("## Model\n", f"## Model\nExtends the model files of the header as left by {builds_on}. Its Answer, credibility included:\n\n{quoted}\n\n", 1)
     head.update({k: spec[k] for k in SLICE if k in spec})
@@ -275,12 +364,13 @@ def can_close(issue_id, directory="docs/issues", tasks=None):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["title", "label", "summary", "check", "task", "answers", "history", "can-close"])
+    ap.add_argument("cmd", choices=["title", "label", "summary", "check", "task", "new", "answers", "history", "can-close"])
     ap.add_argument("args", nargs="+")
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--dir", default="docs/issues")
     ap.add_argument("--tasks", default="docs/tasks")
+    ap.add_argument("--number", type=int, help="use this number (the GitHub issue number) instead of the next free one")
     ap.add_argument("--builds-on", help="task id of the previous slice this one extends (task command)")
     a = ap.parse_args(argv)
     if a.cmd == "title":
@@ -290,7 +380,7 @@ def main(argv=None):
         print(label(a.args[0]))
         return 0
     if a.cmd == "check":
-        fails, warns = check(a.args[0])
+        fails, warns = check(a.args[0], a.dir)
         for m in fails:
             print("FAIL:", m)
         for m in warns:
@@ -298,16 +388,33 @@ def main(argv=None):
         return 1 if fails else 0
     if a.cmd == "task":
         spec = load_spec(a.args[0])
+        title = " ".join(a.args[2:])
+        number = a.number or next_number(a.dir, a.tasks)
+        bn = task_number(spec["id"], a.builds_on, a.tasks) if a.builds_on else None
+        problem = (f"--builds-on {a.builds_on}: no such task of {spec['id']} in {a.tasks}" if a.builds_on and bn is None
+                   else used(number, spec["id"], a.args[1], a.dir, a.tasks) if a.write else None)
+        if problem:
+            print(problem, file=sys.stderr)
+            return 2
         prev = next((ans for tid, _, ans in task_answers(spec["id"], a.tasks) if tid == a.builds_on), "")
-        text = task_text(spec, a.args[1], " ".join(a.args[2:]), a.builds_on, prev)
+        text = task_text(spec, a.args[1], title, a.builds_on, prev, bn)
         if not a.write:
             print(text)
             return 0
-        slug = re.sub(r"[^a-z0-9]+", "-", " ".join(a.args[2:]).lower()).strip("-")
-        out = Path(a.tasks) / f"{a.args[1]}-{slug}.md"
+        out = Path(a.tasks) / file_name(number, spec["id"], a.args[1], title)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text, encoding="utf-8")
         print(f"{out}: task written")
+        return 0
+    if a.cmd == "new":  # the path of the next issue or task file; the skill writes the content there
+        number = a.number or next_number(a.dir, a.tasks)
+        if problem := used(number, None, None, a.dir, a.tasks):
+            print(problem, file=sys.stderr)
+            return 2
+        if a.args[0] == "issue":
+            print(Path(a.dir) / file_name(number, next_issue_id(a.dir), None, " ".join(a.args[1:])))
+        else:
+            print(Path(a.tasks) / file_name(number, a.args[1], next_task_id(a.args[1], a.tasks), " ".join(a.args[2:])))
         return 0
     if a.cmd == "history":
         ip = issue_file(a.dir, a.args[0])

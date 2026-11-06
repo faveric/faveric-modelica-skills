@@ -33,6 +33,7 @@ Skills are domain-agnostic. Universal improvements are committed to `skills/` (S
 
 ## Known gaps (do not paper over)
 
+- Branches, spin-offs, the PR and the GitHub sub-issue alignment are written in the skills and need a GitHub tracker; they are not tested. `mlstate` reads only files (stage `tracker` for a GitHub tracker, which `/startsession` then reads with `gh`). `mlissue check` does validate the branch name, `base` and a task's `blocked_by` numbers.
 - The work area is enforced by a skill line, `tools/mlwork.py check` and a `/startsession` warning; files written outside the allowed roots are found afterwards, not prevented, and no CI job fails on them (ADR-0022).
 - G6b, G7 and the solution-verification sweep are not implemented as gates; at L1 `has been verified` needs a hand-written `solution-verification: done: ...` record entry, which nothing checks beyond its presence.
 - A `// cite:` tag counts anywhere in the model files, not next to the code that uses the source.
