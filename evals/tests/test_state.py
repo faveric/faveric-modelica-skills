@@ -27,10 +27,11 @@ class StateCase(unittest.TestCase):
         (self.d / "docs" / "tasks").mkdir(parents=True)
 
     def issue(self, text=HEADER):
-        (self.d / "docs" / "issues" / "ISSUE-001.md").write_text(text, encoding="utf-8")
+        (self.d / "docs" / "issues" / "00001 [ISSUE-001] - t.md").write_text(text, encoding="utf-8")
 
-    def task(self, name, *a, **k):
-        (self.d / "docs" / "tasks" / name).write_text(task(*a, **k), encoding="utf-8")
+    def task(self, tid, *a, **k):
+        name = f"{int(tid.split('-')[1]):05d} [{k.get('issue', 'ISSUE-001')}] [{tid}] - t.md"  # the number is the T-id's, so "#1" names T-001
+        (self.d / "docs" / "tasks" / name).write_text(task(tid, *a, **k), encoding="utf-8")
 
     def stage(self):
         return mlstate.state(self.d)["issues"][0]
@@ -52,29 +53,29 @@ class TestStages(StateCase):
 
     def test_open_tasks_pick_the_first_unblocked_one(self):
         self.issue()
-        self.task("001.md", "T-001", [True, True])
-        self.task("002.md", "T-002", [True, False], blocked=["T-001"])
-        self.task("003.md", "T-003", [False], blocked=["T-002"])
+        self.task("T-001", [True, True])
+        self.task("T-002", [True, False], blocked=["#1"])
+        self.task("T-003", [False], blocked=["#2"])
         s = self.stage()
         self.assertEqual((s["stage"], s["task"], s["open_tasks"], s["total_tasks"]), ("implement", "T-002", 2, 3))
         self.assertEqual(mlstate.state(self.d)["next"], {"command": "/implement", "issue": "ISSUE-001", "why": s["why"]})
 
     def test_missing_physical_question_is_a_blocker(self):
         self.issue()
-        self.task("001.md", "T-001", [False], question="One sentence: what physical fact must this task establish?")
+        self.task("T-001", [False], question="One sentence: what physical fact must this task establish?")
         self.assertTrue(any("physical question" in b for b in self.stage()["blockers"]))
 
     def test_cycle_means_no_task_can_start(self):
         self.issue()
-        self.task("001.md", "T-001", [False], blocked=["T-002"])
-        self.task("002.md", "T-002", [False], blocked=["T-001"])
+        self.task("T-001", [False], blocked=["#2"])
+        self.task("T-002", [False], blocked=["#1"])
         s = self.stage()
         self.assertIsNone(s["next"])
         self.assertIn("cycle", s["why"])
 
     def test_review_learn_approve_done(self):
         self.issue()
-        self.task("001.md", "T-001", [True])
+        self.task("T-001", [True])
         self.assertEqual(self.stage()["next"], "/review-model")
         (self.d / "docs" / "issues" / "ISSUE-001-conclusion.md").write_text((ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace("**Outcome: met | missed**, measured <value> vs target <value>", "**Outcome: met**, error 4% vs target 10%"), encoding="utf-8")
         s = self.stage()
@@ -94,7 +95,7 @@ class TestStages(StateCase):
     def test_missed_outcome_routes_to_the_failure_interview_before_the_learner(self):
         from tools import mllearn
         self.issue()
-        self.task("001.md", "T-001", [True])
+        self.task("T-001", [True])
         text = (ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace(
             "**Outcome: met | missed**, measured <value> vs target <value>", "**Outcome: missed**, error 30% vs target 10%")
         (self.d / "docs" / "issues" / "ISSUE-001-conclusion.md").write_text(text, encoding="utf-8")
@@ -120,107 +121,71 @@ class TestStages(StateCase):
 class Helpers:
     def put(self, iid, extra=""):
         text = f"---\nid: {iid}\ntitle: t\nlevel: L0\nmodel_files: [src/M.mo]\nsources: []\n{extra}---\n# t\n"
-        (self.d / "docs" / "issues" / f"{iid}.md").write_text(text, encoding="utf-8")
+        name = f"{int(iid.split('-')[1]):05d} [{iid}] - t.md"
+        (self.d / "docs" / "issues" / name).write_text(text, encoding="utf-8")
 
     def issues(self):
         return {i["id"]: i for i in mlstate.state(self.d)["issues"]}
-
-    def conclude(self, iid, outcome):
-        concl = (ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace(
-            "**Outcome: met | missed**, measured <value> vs target <value>", f"**Outcome: {outcome}**, error 4% vs target 10%")
-        (self.d / "docs" / "issues" / f"{iid}-conclusion.md").write_text(concl, encoding="utf-8")
 
 
 class TestTaskStatus(StateCase):
     def test_task_awaiting_approval_waits_for_the_person(self):
         self.issue()
-        self.task("001.md", "T-001", [False], status="awaiting-approval")
+        self.task("T-001", [False], status="awaiting-approval")
         s = self.stage()
         self.assertEqual((s["stage"], s["next"], s["awaiting_approval"]), ("approval", None, ["T-001"]))
         self.assertIn("approved", s["why"])
-        self.task("001.md", "T-001", [True])  # approved: the agent ticks the boxes and clears the status
+        self.assertIn("/implement", s["why"])
+        self.task("T-001", [True])  # approved: the agent ticks the boxes and clears the status
         self.assertEqual(self.stage()["next"], "/review-model")
 
     def test_status_must_be_known(self):
         self.issue()
-        self.task("001.md", "T-001", [False], status="almost-done")
+        self.task("T-001", [False], status="almost-done")
         self.assertTrue(any("almost-done" in w for w in self.stage()["warnings"]))
 
 
-class TestBranches(Helpers, StateCase):
-    def test_stack_runs_from_main_through_the_issues_each_branch_started_from(self):
-        self.put("ISSUE-001", "branch: issue-001-corr\nbase: main\n")
-        self.put("ISSUE-002", "branch: issue-002-fix\nbase: ISSUE-001\n")
-        got = self.issues()
-        self.assertEqual(got["ISSUE-001"]["stack"], ["main", "issue-001-corr"])
-        self.assertEqual(got["ISSUE-002"]["stack"], ["main", "issue-001-corr", "issue-002-fix"])
+class TestBlockers(Helpers, StateCase):
+    def test_a_task_waits_for_the_task_number_it_names_and_says_which(self):
+        self.issue()
+        self.task("T-001", [False])
+        self.task("T-002", [False], blocked=["#1"])
+        got = self.stage()
+        self.assertEqual((got["next"], got["task"]), ("/implement", "T-001"))
+        self.assertEqual(got["waiting"], ["T-002 waits for #1 (open)"])
+        self.task("T-001", [True])
+        got = self.stage()
+        self.assertEqual((got["task"], got["waiting"]), ("T-002", []))
 
-    def test_task_waits_for_the_issue_it_is_blocked_by_until_that_is_concluded_met(self):
-        self.put("ISSUE-001", "branch: issue-001-corr\nbase: main\n")
-        self.put("ISSUE-002", "branch: issue-002-fix\nbase: ISSUE-001\n")
-        self.task("001.md", "T-001", [False], blocked=["ISSUE-002"], issue="ISSUE-001")
-        self.task("002.md", "T-002", [False], issue="ISSUE-002")
-        got = self.issues()["ISSUE-001"]
+    def test_a_number_that_names_nothing_is_reported_not_guessed(self):
+        self.issue()
+        self.task("T-001", [False], blocked=["#9"])
+        got = self.stage()
         self.assertEqual((got["stage"], got["next"]), ("implement", None))
-        self.assertTrue(any("T-001" in w and "ISSUE-002" in w for w in got["waiting"]))
-        nxt = mlstate.state(self.d)["next"]
-        self.assertEqual((nxt["command"], nxt["issue"]), ("/implement", "ISSUE-002"))  # the fix first, not the waiting parent
-        self.task("002.md", "T-002", [True], issue="ISSUE-002")
-        self.conclude("ISSUE-002", "met")
-        got = self.issues()["ISSUE-001"]
-        self.assertEqual((got["next"], got["task"], got["waiting"]), ("/implement", "T-001", []))
-
-    def test_failed_blocker_leaves_the_decision_to_the_person(self):
-        self.put("ISSUE-001", "branch: issue-001-corr\nbase: main\n")
-        self.put("ISSUE-002", "branch: issue-002-fix\nbase: ISSUE-001\n")
-        self.task("001.md", "T-001", [False], blocked=["ISSUE-002"], issue="ISSUE-001")
-        self.task("002.md", "T-002", [True], issue="ISSUE-002")
-        self.conclude("ISSUE-002", "missed")
-        got = self.issues()["ISSUE-001"]
-        self.assertEqual((got["stage"], got["next"]), ("implement", None))
-        self.assertTrue(any("missed" in w and "decision" in w for w in got["waiting"]))
-        self.task("001.md", "T-001", [False], issue="ISSUE-001")  # the person removed the blocker: proceed anyway
-        self.assertEqual(self.issues()["ISSUE-001"]["next"], "/implement")
+        self.assertTrue(any("#9" in w and "unknown" in w for w in got["waiting"]))
+        self.assertNotIn("cycle", got["why"])
 
 
 class TestOverview(Helpers, StateCase):
     def test_each_issue_has_a_goal_an_opening_order_and_what_it_waits_for(self):
         self.put("ISSUE-001", "decision: pick the correlation\n")
         self.put("ISSUE-002", "decision: fix the base\n")
-        self.task("001.md", "T-001", [False], blocked=["ISSUE-002"], issue="ISSUE-001")
+        self.task("T-001", [False], issue="ISSUE-001")
+        self.task("T-002", [False], blocked=["#1"], issue="ISSUE-001")
         got = self.issues()
         self.assertEqual((got["ISSUE-001"]["goal"], got["ISSUE-001"]["opened"]), ("pick the correlation", 1))
         self.assertEqual((got["ISSUE-002"]["goal"], got["ISSUE-002"]["opened"]), ("fix the base", 2))
         out = mlstate.render(mlstate.state(self.d))
         self.assertIn("goal: fix the base", out)
-        self.assertIn("waits: T-001 waits for ISSUE-002", out)
-
-
-class TestCurrentBranch(Helpers, StateCase):
-    def git(self, *a):
-        subprocess.run(["git", "-C", str(self.d), *a], check=True, capture_output=True)
-
-    def test_working_on_the_wrong_branch_is_a_warning(self):
-        self.put("ISSUE-001", "branch: issue-001-corr\nbase: main\n")
-        self.task("001.md", "T-001", [False])
-        self.git("init", "-q", "-b", "main")
-        self.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x")
-        self.assertTrue(any("main" in w and "issue-001-corr" in w for w in self.issues()["ISSUE-001"]["warnings"]))
-        self.git("checkout", "-q", "-b", "issue-001-corr")
-        self.assertEqual(self.issues()["ISSUE-001"]["warnings"], [])
-
-    def test_no_git_repository_means_no_branch_warning(self):
-        self.put("ISSUE-001", "branch: issue-001-corr\nbase: main\n")
-        self.task("001.md", "T-001", [False])
-        self.assertEqual(self.issues()["ISSUE-001"]["warnings"], [])
+        self.assertIn("waits: T-002 waits for #1", out)
 
 
 class TestWarnings(StateCase):
     def test_stale_summary_block_warns_and_state_changes_nothing(self):
         self.issue(HEADER + f"\n{mlissue.BEGIN}\nold\n{mlissue.END}\n")
-        before = (self.d / "docs" / "issues" / "ISSUE-001.md").read_text(encoding="utf-8")
+        before = (self.d / "docs" / "issues" / "00001 [ISSUE-001] - t.md").read_text(encoding="utf-8")
         self.assertTrue(any("at-a-glance" in w for w in self.stage()["warnings"]))
-        self.assertEqual((self.d / "docs" / "issues" / "ISSUE-001.md").read_text(encoding="utf-8"), before)
+        self.assertEqual((self.d / "docs" / "issues" / "00001 [ISSUE-001] - t.md").read_text(encoding="utf-8"), before)
 
     def test_stale_record_is_listed(self):
         from evals import run_gates

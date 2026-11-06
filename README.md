@@ -30,8 +30,9 @@ flowchart TD
     AW --> PA{"You: approved, or feedback"}
     PA -- approved --> DONE
     PA -- feedback --> IMP
-    IMP -. "broken base found" .-> NI["New issue with base = this issue;<br/>this task: blocked_by the new issue"]
+    IMP -. "defect in the model it builds on<br/>(GitHub only)" .-> NI["New issue from this issue's branch;<br/>this task: blocked by #N"]
     NI -.-> I
+    NI -. "#N closed: the task goes on" .-> IMP
     DONE --> ALL{"Every task closed?"}
     ALL -- no --> SS
     ALL -- yes --> REV["/review-model: two reviewers, findings to you"]
@@ -39,7 +40,8 @@ flowchart TD
     RW -- rework --> IMP
     RW -- conclude --> CON["Conclusion with Outcome"]
     CON --> OUT{"Outcome"}
-    OUT -- met --> PR["Learner; PR offered; you merge"]
+    OUT -- met --> LRN["Learner proposes lessons"]
+    LRN --> PR["PR offered; you merge"]
     OUT -- missed --> FI["/interview-failed-issue"]
     FI --> DEC{"Decision"}
     DEC -- recover --> TI
@@ -48,7 +50,7 @@ flowchart TD
     class N,AW,PA,RW,DEC person;
 ```
 
-One branch per issue, one commit per task, and the PR is squash-merged by you. An issue found while building another (a broken base, say) is an ordinary issue whose `base` is the parent, so its branch starts from the parent's latest commit. The task it interrupts lists it in `blocked_by` and waits until it is concluded `met`; if it missed, `/startsession` marks it "decision needed" and you choose (drop the blocker, or conclude the parent `missed`). A recovery issue starts from the failed issue's branch the same way.
+Without GitHub you work one issue at a time, with no branches. With a GitHub tracker each issue has a branch (one commit per task), tasks are sub-issues, and you merge the PR. A defect found in the model an issue builds on becomes a new issue that starts from the parent's branch after a `WIP:` commit; the interrupted task is blocked by it (`#N`) until it is closed. If the new issue missed, you choose: remove the blocker and go on, or abandon the parent by writing "abandoned" Answers on its open tasks so it can be concluded `missed`. A recovery issue starts from the failed issue's branch the same way.
 
 Two levels of use: **L0** rough comparison, **L1** design decision. Safety-critical use (L2) is out of scope.
 

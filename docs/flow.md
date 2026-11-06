@@ -24,17 +24,15 @@ component  ──►  system  ──►  calibration
 
 A system issue lists the components it uses and their record versions. If a component record is stale (G10), the system cannot claim `verified`.
 
-## Starting a session
-
-`/startsession` derives the stage of every issue from the files (`tools/mlstate.py`, MCP tool `project_state`) and suggests one next command. It changes nothing and never invokes another user-invoked skill (ADR-0019).
-
-## After the last task: conclusion and learning
-
-`review-model` writes `docs/issues/<id>-conclusion.md`. Then `learn-from-issue` proposes at most three lessons or library skills from that issue's evidence, and `approve-lessons` lets a person approve, edit or reject each before it enters the library (ADR-0018).
-
 ## Starting a session and working an issue
 
-`/startsession` lists every open issue (goal, stage, what it waits for, opening order) and suggests one command. You run each step: `implement` per task (it closes the task, or marks it `awaiting-approval` for you), then `review-model` once when the last task closes (findings to you, then the conclusion, then an offer to open a PR that you merge). One branch per issue (`branch`, `base`). Work found while building another issue is an ordinary new issue with `base` set to the parent; the task it interrupts gets the new issue in `blocked_by`. The diagram is in the README.
+`/startsession` derives the state of every open issue from the files (`tools/mlstate.py`, MCP tool `project_state`): goal, stage, what it waits for, opening order. It changes nothing, never invokes another user-invoked skill (ADR-0019) and suggests one command. You run each step: `implement` per task (it closes the task, or marks it `awaiting-approval` for you), then `review-model` once when the last task closes. The diagram is in the README.
+
+Without GitHub you work one issue at a time. With a GitHub tracker each issue has a branch, tasks are sub-issues, and work found while building another issue becomes a new issue that starts from the parent's branch; the task it interrupted is blocked by it (`#N`) until it is closed.
+
+## After the last task: review, conclusion and learning
+
+`review-model` reports its findings, you decide, it writes `docs/issues/<id>-conclusion.md`, runs `learn-from-issue` (at most three lessons or library skills from that issue's evidence) and offers a PR that you merge. `approve-lessons` lets a person approve, edit or reject each lesson before it enters the library (ADR-0018).
 
 ## Accepting a gap
 

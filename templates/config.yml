@@ -14,7 +14,7 @@ engine:
     results: simulate        # result series come back from simulate
   version: null              # engine version to pin
 versions: {modelica: "4.0.0", msl: "4.0.0", library: null}
-tracker: {kind: files, path: docs/tasks}    # kind: files | github
+tracker: {kind: files, path: docs/tasks}    # files: one issue at a time, no branches | github: branches, spin-offs, sub-issues and PRs through gh; files are named '00002 [ISSUE-001] [T-001] - title.md'
 ids:                         # defined once; to-tasks and tools/mlissue.py use these
   issue: "ISSUE-{n:03d}"
   task: "T-{n:03d}"

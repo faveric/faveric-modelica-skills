@@ -123,7 +123,7 @@ def _flags(root, issue):
         if ln.startswith("COMMIT:"):
             close_file(); sha_ = ln[7:]; path = None
         elif ln.startswith("+++ "):
-            close_file(); path = ln[6:] if ln.startswith("+++ b/") else None
+            close_file(); path = ln[6:].split(chr(9))[0] if ln.startswith("+++ b/") else None  # git appends a tab after a path with spaces
         elif path and ln.startswith("-") and not ln.startswith("---"):
             if path.endswith(".mo") and re.match(r"-\s*assert\s*\(", ln):
                 flags.append({"kind": "flag", "ref": "assert-removed-or-rewritten", "text": f"{ln[1:].strip()[:100]} in {path} at {sha_[:10]}"})

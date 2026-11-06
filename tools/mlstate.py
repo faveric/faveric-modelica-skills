@@ -7,11 +7,11 @@ Stages of an issue, first match wins: header (does not parse), tracker (tasks li
 (a task awaits the person), implement (open tasks; a task can wait for another task or for an issue concluded met), review
 (all tasks closed, no conclusion), failure (missed, not diagnosed), approve (candidates waiting), learn (conclusion,
 learner not run), done. A task is closed when its "Done when" boxes are all ticked. Each issue also carries its goal (the
-header's decision), its opening order, what it waits for, and the stack of branches it sits on. With a tracker other than files the tasks cannot be
+header's decision), its opening order and what it waits for ('#N' in a task's blocked_by names the task by its file number). With a tracker other than files the tasks cannot be
 read here and the stage is "tracker". The `startsession` skill reads this and suggests the next command; it does not
 change anything.
 """
-import argparse, json, re, subprocess, sys
+import argparse, json, re, sys
 from pathlib import Path
 
 import yaml
@@ -52,16 +52,13 @@ def _closed(boxes):
     return bool(boxes) and all(b.lower() == "x" for b in boxes)
 
 
-def blocker_text(blocker, tasks_by_id, issues_dir):
-    """None when the blocker is closed (a closed task, or an issue concluded met), else why it still blocks."""
-    if blocker in tasks_by_id:
-        return None if tasks_by_id[blocker]["closed"] else f"{blocker} (open)"
-    o = mlissue.outcome(issues_dir, blocker)[0]
-    if o == "met":
-        return None
-    if o == "missed":
-        return f"{blocker} (concluded missed: decision needed; remove it from blocked_by to proceed, or conclude this issue missed)"
-    return f"{blocker} (not concluded)"
+def blocker_text(blocker, tasks_by_number):
+    """None when the task a '#N' names is closed, else why it still blocks."""
+    m = re.fullmatch(r"#(\d+)", blocker)
+    t = tasks_by_number.get(int(m.group(1))) if m else None
+    if t is None:
+        return f"{blocker} (unknown: no task with that number)"
+    return None if t["closed"] else f"{blocker} (open)"
 
 
 def read_tasks(root, cfg):
@@ -76,7 +73,8 @@ def read_tasks(root, cfg):
             continue
         boxes = re.findall(r"^\s*-\s*\[([ xX])\]", _section(body, "Done when"), flags=re.M)
         question = _section(body, "Physical question")
-        tasks.append({"id": str(fm.get("id") or p.stem), "issue": str(fm["issue"]), "file": p.relative_to(root).as_posix(),
+        named = mlissue.parse_name(p.name)
+        tasks.append({"id": str(fm.get("id") or p.stem), "number": named[0] if named else None, "issue": str(fm["issue"]), "file": p.relative_to(root).as_posix(),
                       "blocked_by": [str(x) for x in fm.get("blocked_by") or []], "status": fm.get("status"),
                       "closed": _closed(boxes),
                       "question": bool(question) and not PLACEHOLDER.match(question)})
@@ -88,7 +86,6 @@ def next_task(tasks, waits):
 
 
 def issue_state(root, path, tasks, tracker_kind, entries):
-    fm, _ = _front(read_text(path))
     out = {"file": path.relative_to(root).as_posix(), "id": None, "title": None, "stage": None, "next": None, "why": None,
            "blockers": [], "warnings": [], "waiting": [], "goal": None}
     try:
@@ -102,25 +99,24 @@ def issue_state(root, path, tasks, tracker_kind, entries):
         if mlissue._replace(text, mlissue.summary_block(spec, path.parent)) != text:
             out["warnings"].append("the at-a-glance block is stale: run `python3 tools/mlissue.py summary <issue> --write`")
     iid = out["id"]
-    out.update(branch=spec.get("branch"), base=spec.get("base"))
     if tracker_kind:
         out.update(stage="tracker", next=None, why=f"tasks live in the {tracker_kind} tracker; read them there and suggest the next one")
         return out
     mine = [t for t in tasks if t["issue"] == iid]
-    concl = mlissue.can_close(iid, str(Path(root) / "docs" / "issues"))
-    if not mine and concl:
+    idir = Path(root) / "docs" / "issues"
+    unconcluded = mlissue.can_close(iid, str(idir))  # problems found: no conclusion written yet
+    if not mine and unconcluded:
         out.update(stage="tasks", next="/to-tasks", why="the issue has no tasks")
         return out
-    idir = Path(root) / "docs" / "issues"
-    by_id = {t["id"]: t for t in tasks}
-    waits = lambda t: [r for b in t["blocked_by"] if (r := blocker_text(b, by_id, idir))]
+    by_number = {t["number"]: t for t in tasks if t["number"] is not None}
+    waits = lambda t: [r for b in t["blocked_by"] if (r := blocker_text(b, by_number))]
     out["awaiting_approval"] = [t["id"] for t in mine if t["status"] == "awaiting-approval" and not t["closed"]]
     out["warnings"] += [f"task {t['id']}: unknown status {t['status']!r} (the only status is {', '.join(mlissue.TASK_STATUS)})"
                         for t in mine if t["status"] and t["status"] not in mlissue.TASK_STATUS]
     out["waiting"] = [f"{t['id']} waits for {r}" for t in mine if not t["closed"] for r in waits(t)]
     if out["awaiting_approval"]:
-        out.update(stage="approval", next=None, why=f"task {', '.join(out['awaiting_approval'])} awaits your approval: say 'approved' "
-                   "and the agent ticks the boxes, or give feedback and run `/implement` on it again")
+        out.update(stage="approval", next=None, why=f"task {', '.join(out['awaiting_approval'])} awaits your approval: run `/implement` on it "
+                   "and say 'approved' (the agent ticks the boxes) or give feedback")
         return out
     nxt = next_task(mine, waits)
     if nxt:
@@ -130,17 +126,17 @@ def issue_state(root, path, tasks, tracker_kind, entries):
             out["blockers"].append(f"task {nxt['id']} has no physical question (fill the section before building)")
         return out
     if any(not t["closed"] for t in mine):
-        external = any(b not in by_id for t in mine if not t["closed"] for b in t["blocked_by"] if blocker_text(b, by_id, idir))
-        if external:
-            out.update(stage="implement", next=None, why="every open task waits for another issue: see the list below")
+        unknown = [r for t in mine if not t["closed"] for r in waits(t) if "unknown" in r]
+        if unknown:
+            out.update(stage="implement", next=None, why="every open task waits, and a blocker names no task: fix blocked_by")
+            out["blockers"] += unknown
         else:
             out.update(stage="implement", next=None, why="open tasks exist but each is blocked by another open task: the order has a cycle")
             out["blockers"].append("no task can start")
         return out
-    if concl:
+    if unconcluded:
         out.update(stage="review", next="/review-model", why="all tasks are closed and there is no conclusion yet")
         return out
-    idir = Path(root) / "docs" / "issues"
     if mlissue.outcome(idir, iid)[0] == "missed" and not (idir / f"{iid}-failure.md").exists():
         out.update(stage="failure", next="/interview-failed-issue", why="the target was missed and the cause is not diagnosed yet")
         return out
@@ -153,15 +149,6 @@ def issue_state(root, path, tasks, tracker_kind, entries):
     else:
         out.update(stage="done", next=None, why="conclusion written, learner ran, no candidate waiting")
     return out
-
-
-def current_branch(root):
-    """Name of the checked-out git branch, or None when root is not a repository or git is missing."""
-    try:
-        r = subprocess.run(["git", "-C", str(root), "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, timeout=10)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return r.stdout.strip() or None if r.returncode == 0 else None
 
 
 def state(root="."):
@@ -200,16 +187,8 @@ def state(root="."):
             out["work_warnings"] += [f"script without header: {f}" for f, _ in wc["scripts_without_header"]]
         except Exception as exc:  # noqa: BLE001
             out["work_warnings"].append(f"work-area check failed: {str(exc)[:60]}")
-    heads = {i["id"]: i for i in out["issues"]}
-    for i in out["issues"]:
-        i["stack"], cur, seen = [i.get("branch") or i["id"]], i.get("base"), {i["id"]}
-        while cur and cur != "main" and cur in heads and cur not in seen:
-            seen.add(cur)
-            i["stack"].insert(0, heads[cur].get("branch") or cur)
-            cur = heads[cur].get("base")
-        i["stack"].insert(0, "main")
     for n, i in enumerate(out["issues"], 1):
-        i["opened"] = n  # issue ids are sequential, so the file order is the opening order
+        i["opened"] = n  # file names start with the running number, so the file order is the opening order
     if out["next"] is None:
         active = [i for i in out["issues"] if i["stage"] != "done"]
         pick = next((i for i in active if i.get("next")), active[0] if active else None)
@@ -221,9 +200,6 @@ def state(root="."):
             out["next"] = {"command": None, "issue": pick["id"], "why": pick["why"]}
         else:
             out["next"] = {"command": "/interview-model", "why": "every issue is done: start new work"}
-        cur = current_branch(root) if pick else None
-        if cur and pick.get("branch") and cur != pick["branch"]:
-            pick["warnings"].append(f"on branch {cur}, but {pick['id']} is worked on {pick['branch']} (stack: {' > '.join(pick['stack'])})")
     return out
 
 

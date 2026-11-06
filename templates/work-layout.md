@@ -26,6 +26,6 @@ Promote a file only if a committed artefact cites it, it is needed to reproduce 
 
 ## Cleanup
 
-At issue end print `python3 tools/mlwork.py manifest <ISSUE>` and delete only after the person confirms. Keep the folder while the issue is failed or paused, until its recovery issue closes or the person deletes it. Never delete without asking.
+At issue end print `python3 tools/mlwork.py manifest <ISSUE>` and delete only after the person confirms. Keep the folder while the issue is failed, until its recovery issue closes or the person deletes it. Never delete without asking.
 
 `python3 tools/mlwork.py check` lists untracked files outside the allowed roots (docs, tracker, records, refs, `scripts/`, `tools/`, `.modelica-skills/`, Modelica sources) and scripts without a header. It reports; it never moves or deletes. `/startsession` shows its result.

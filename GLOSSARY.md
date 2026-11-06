@@ -66,4 +66,6 @@ The shared language of these skills. Use these words exactly.
 
 **Issue branch** — the one branch of an issue (`branch`, `<issue-lower>-<slug>`), started from `main` or from the latest commit of the issue it starts from (`base`). The chain of bases is the **stack**.
 
-**Spin-off issue** — an issue found while building another. It is an ordinary issue whose `base` is the parent; the task it interrupts lists it in `blocked_by` and waits until it is concluded `met`.
+**Spin-off issue** — an issue found while building another (a defect in the model it builds on). Its branch starts from the parent's branch; the interrupted task is blocked by it (`blocked_by: [#N]`) until it is closed. Only with a GitHub tracker.
+
+**Tracker numbers** — a task or issue is named `#N`: GitHub's number, or, with files, the running number at the start of its file name (`00002 [ISSUE-001] [T-001] - title.md`).

@@ -4,7 +4,7 @@ issue: ISSUE-000
 type: AFK                    # AFK = an agent can do it alone; HITL = needs a human decision
 builds_on: null              # previous slice this one extends (same component, one more behaviour); set by mlissue.py task --builds-on
 status: null                 # null | awaiting-approval: the person decides on this task before it closes. A task is closed when its Done-when boxes are ticked
-blocked_by: []               # only when this task consumes another task's RESULT, never for ordering
+blocked_by: []               # #N: the number (file name, or GitHub issue) of a task or issue this one waits for               # only when this task consumes another task's RESULT, never for ordering
 title: "[ISSUE-000][T-000] <title>"   # id format: `ids` in .modelica-skills/config.yml
 ---
 <!-- Header slice (level, conditions, envelope, tolerances, sources, reference) is copied from the issue by
