@@ -14,7 +14,7 @@ Guidance for working **on this repository** (the skills themselves). For using t
 
 - Path: `skills/<category>/<name>/SKILL.md`. Categories: `modelling`, `productivity`.
 - Frontmatter: `name` (matches the folder) and `description` (one sentence saying **when** to use it). User-invoked skills also set `disable-model-invocation: true`.
-- A user-invoked skill may call model-invoked skills. It must never call another user-invoked skill. The one exception is `repo-manager`, which hands the path of a skill file to a subagent.
+- A user-invoked skill may call model-invoked skills. It must never call another user-invoked skill.
 - Shared formats (issue front matter, record entries, gate ids) are defined once, in `templates/` and in `verify-physics`, and referenced from elsewhere.
 
 ## Keep the repo clean
@@ -33,7 +33,7 @@ Skills are domain-agnostic. Universal improvements are committed to `skills/` (S
 
 ## Known gaps (do not paper over)
 
-- The repo manager (subagent hand-off, `git` and `gh` calls, the end review) is a skill, not code: only the state it reads (`mlstate`, task status, branch keys, `can-merge`) is tested. It supports the files tracker only; with a GitHub tracker `mlstate` and `can-merge` do not see task labels. Run it by hand on a real project before relying on it.
+- Branches, spin-offs and the PR are conventions written in the skills (`branch` and `base` in the issue header, a task `blocked_by` an issue id, a PR offered by `review-model`). `mlstate` reads them for information and warns on a wrong current branch; it does not read a GitHub tracker (stage `tracker`).
 - The work area is enforced by a skill line, `tools/mlwork.py check` and a `/startsession` warning; files written outside the allowed roots are found afterwards, not prevented, and no CI job fails on them (ADR-0022).
 - G6b, G7 and the solution-verification sweep are not implemented as gates; at L1 `has been verified` needs a hand-written `solution-verification: done: ...` record entry, which nothing checks beyond its presence.
 - A `// cite:` tag counts anywhere in the model files, not next to the code that uses the source.

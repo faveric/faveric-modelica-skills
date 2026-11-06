@@ -14,79 +14,41 @@ Question session → issue → tasks → build one task at a time (check first, 
 
 ### Workflow
 
-Yellow boxes are decisions that stay with a person. `/repo-manager` only coordinates: each phase is a subagent that follows the skill file, and closing a task happens inside `implement`.
+Yellow boxes are where you decide. You run every step; `/startsession` shows where things stand and suggests one command.
 
 ```mermaid
 flowchart TD
-    S["/setup-modelica-skills (once per repo)"] --> I["/interview-model"]
-    I --> TI["/to-issue: header, branch and base"]
-    TI --> TT["/to-tasks: slice plan agreed, then tasks released<br/>AFK = ready-for-agent, HITL = ready-for-human"]
-    TT --> RM["/repo-manager: orders open issues,<br/>one subagent per released task"]
-    RM --> IMP["/implement T-n: check first, smallest change,<br/>gates, record, Answer, one commit"]
-    IMP --> CL{"Clear closure?<br/>all gates passed, credibility verified,<br/>no unreviewed assumption, nothing loosened"}
-    CL -- yes --> DONE["status: done"]
+    SS["/startsession: open issues, goals, what waits, one next command"] --> N{"New work?"}
+    N -- yes --> I["/interview-model"]
+    I --> TI["/to-issue: header, branch, base"]
+    TI --> TT["/to-tasks: slice plan agreed, tasks created"]
+    N -- "no, resume" --> IMP
+    TT --> IMP["/implement T-n: check first, build, gates, record, Answer, one commit"]
+    IMP --> CL{"All named gates passed<br/>and no decision left for you?"}
+    CL -- yes --> DONE["Done-when boxes ticked: task closed"]
     CL -- doubt --> AW["status: awaiting-approval"]
-    AW --> PA{"Person: /implement approve<br/>or disapprove with feedback"}
-    PA -- approve --> DONE
-    PA -- disapprove --> RW["review_round + 1,<br/>feedback in Notes,<br/>ready-for-agent"]
-    RW --> IMP
-    IMP -. "broken base found" .-> SP["Spin-off issue: see the branch diagram"]
-    DONE --> ALL{"Every task done<br/>or cancelled?"}
-    ALL -- no --> RM
-    ALL -- yes --> REV["Issue review: standards and fidelity subagents<br/>over the whole issue diff"]
-    REV --> BL{"Blocking finding?"}
-    BL -- "yes, round below 2" --> RW
-    BL -- "yes, round 2" --> PD{"Person decides"}
-    BL -- no --> CON["/review-model: conclusion with Outcome"]
+    AW --> PA{"You: approved, or feedback"}
+    PA -- approved --> DONE
+    PA -- feedback --> IMP
+    IMP -. "broken base found" .-> NI["New issue with base = this issue;<br/>this task: blocked_by the new issue"]
+    NI -.-> I
+    DONE --> ALL{"Every task closed?"}
+    ALL -- no --> SS
+    ALL -- yes --> REV["/review-model: two reviewers, findings to you"]
+    REV --> RW{"You: rework, accept or conclude"}
+    RW -- rework --> IMP
+    RW -- conclude --> CON["Conclusion with Outcome"]
     CON --> OUT{"Outcome"}
-    OUT -- met --> LRN["learn-from-issue, then /approve-lessons"]
-    LRN --> MRG["gh: PR to the issue's base,<br/>squash-merge if can-merge passes"]
+    OUT -- met --> PR["Learner; PR offered; you merge"]
     OUT -- missed --> FI["/interview-failed-issue"]
     FI --> DEC{"Decision"}
     DEC -- recover --> TI
     DEC -- "accept or stop" --> CLOSED["Closed without merge"]
     classDef person fill:#fff3bf,stroke:#b08900,color:#000;
-    class CL,PA,PD,OUT,DEC,AW person;
+    class N,AW,PA,RW,DEC person;
 ```
 
-Task status, in the task header (`ready-for-agent` and `ready-for-human` are set by `/to-tasks`; `done`, `awaiting-approval` and the return to `ready-for-agent` only by `implement`):
-
-```mermaid
-stateDiagram-v2
-    [*] --> ready_for_agent: to-tasks (AFK)
-    [*] --> ready_for_human: to-tasks (HITL)
-    ready_for_agent --> done: implement, clear closure
-    ready_for_agent --> awaiting_approval: implement, any doubt
-    ready_for_human --> done: person finishes, implement closes
-    awaiting_approval --> done: implement approve
-    awaiting_approval --> ready_for_agent: implement disapprove, review_round + 1
-    done --> ready_for_agent: blocking finding in the issue review
-    ready_for_agent --> cancelled: parent declared failed
-    ready_for_human --> cancelled: parent declared failed
-    done --> [*]
-    cancelled --> [*]
-```
-
-One branch per issue, one commit per task, squash-merged. An issue found while building another starts from the parent's latest commit; the parent is paused until the spin-off concludes `met`, or the owner decides:
-
-```mermaid
-gitGraph
-    commit id: "main"
-    branch issue-001-correlation
-    commit id: "T-001 done"
-    commit id: "T-002 WIP: paused for ISSUE-002"
-    branch issue-002-fix-base
-    commit id: "T-001 fix"
-    commit id: "ISSUE-002 concluded met"
-    checkout issue-001-correlation
-    merge issue-002-fix-base id: "squash PR into the parent"
-    commit id: "T-002 done on the corrected base"
-    commit id: "T-003 done"
-    checkout main
-    merge issue-001-correlation id: "squash PR into main"
-```
-
-If the spin-off concludes `missed`, the parent stays paused and the person chooses: **(a)** proceed on the uncorrected base (`proceeds_without` with owner and reason in the parent header), or **(b)** declare the parent failed (its open tasks become `cancelled` and the conclusion says `missed`). A recovery issue (after a `missed` conclusion) starts from the failed issue's branch; the failed PR is closed unmerged and the recovery PR targets `main`.
+One branch per issue, one commit per task, and the PR is squash-merged by you. An issue found while building another (a broken base, say) is an ordinary issue whose `base` is the parent, so its branch starts from the parent's latest commit. The task it interrupts lists it in `blocked_by` and waits until it is concluded `met`; if it missed, `/startsession` marks it "decision needed" and you choose (drop the blocker, or conclude the parent `missed`). A recovery issue starts from the failed issue's branch the same way.
 
 Two levels of use: **L0** rough comparison, **L1** design decision. Safety-critical use (L2) is out of scope.
 
@@ -102,15 +64,14 @@ The skills learn from the library they are used on, once per issue, and only wit
 
 You run these:
 
-- [startsession](skills/modelling/startsession/SKILL.md): start here; shows where the work stands and suggests the next command.
+- [startsession](skills/modelling/startsession/SKILL.md): start here; lists the open issues (goal, stage, what each waits for) and suggests the next command.
 - [setup-modelica-skills](skills/modelling/setup-modelica-skills/SKILL.md): once per repo; picks the simulation MCP server and where things live.
 - [interview-model](skills/modelling/interview-model/SKILL.md): questions that fix use, physics, ranges and sources.
 - [to-issue](skills/modelling/to-issue/SKILL.md): turn the conversation into an issue.
 - [to-tasks](skills/modelling/to-tasks/SKILL.md): split the issue into vertical slices, one behaviour each.
 - [interview-failed-issue](skills/modelling/interview-failed-issue/SKILL.md): diagnose a closed issue that missed its target; ends in recover, accept or stop.
 - [implement](skills/modelling/implement/SKILL.md): build a task, check first.
-- [repo-manager](skills/modelling/repo-manager/SKILL.md): keep order across open issues and drive them with one subagent per task, a branch per issue and stacked PRs.
-- [review-model](skills/modelling/review-model/SKILL.md): independent review of an issue, then its conclusion (the repo manager has subagents run it when the last task closes).
+- [review-model](skills/modelling/review-model/SKILL.md): independent review of an issue, then its conclusion (run when the last task closes).
 - [calibrate](skills/modelling/calibrate/SKILL.md): fit parameters without fooling yourself.
 - [approve-lessons](skills/modelling/approve-lessons/SKILL.md): approve, edit or reject what the learner proposed.
 

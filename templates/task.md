@@ -3,8 +3,7 @@ id: T-000
 issue: ISSUE-000
 type: AFK                    # AFK = an agent can do it alone; HITL = needs a human decision
 builds_on: null              # previous slice this one extends (same component, one more behaviour); set by mlissue.py task --builds-on
-status: ready-for-agent      # ready-for-agent | ready-for-human | awaiting-approval | done | cancelled; set by to-tasks, closed only by implement
-review_round: 0              # +1 each time a disapproval or the issue review sends the task back; a task at 2 goes to the person
+status: null                 # null | awaiting-approval: the person decides on this task before it closes. A task is closed when its Done-when boxes are ticked
 blocked_by: []               # only when this task consumes another task's RESULT, never for ordering
 title: "[ISSUE-000][T-000] <title>"   # id format: `ids` in .modelica-skills/config.yml
 ---

@@ -32,9 +32,9 @@ A system issue lists the components it uses and their record versions. If a comp
 
 `review-model` writes `docs/issues/<id>-conclusion.md`. Then `learn-from-issue` proposes at most three lessons or library skills from that issue's evidence, and `approve-lessons` lets a person approve, edit or reject each before it enters the library (ADR-0018).
 
-## Working issues with the repo manager
+## Starting a session and working an issue
 
-`/repo-manager` orders the open issues (a spin-off before the parent it pauses, a base before what is stacked on it, then by stage), asks the person to confirm, and runs one subagent per released task on the issue's branch. It coordinates; closure stays in `implement` (a task ends `done` or `awaiting-approval`), the review and conclusion in `review-model`. A defect found in the base pauses the issue and starts a spin-off issue from its latest commit; pull requests are stacked and squash-merged when `mlissue can-merge` passes. The diagrams are in the README.
+`/startsession` lists every open issue (goal, stage, what it waits for, opening order) and suggests one command. You run each step: `implement` per task (it closes the task, or marks it `awaiting-approval` for you), then `review-model` once when the last task closes (findings to you, then the conclusion, then an offer to open a PR that you merge). One branch per issue (`branch`, `base`). Work found while building another issue is an ordinary new issue with `base` set to the parent; the task it interrupts gets the new issue in `blocked_by`. The diagram is in the README.
 
 ## Accepting a gap
 

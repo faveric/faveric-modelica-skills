@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 USER_INVOKED = {"startsession", "setup-modelica-skills", "interview-model", "interview-failed-issue", "to-issue", "to-tasks", "implement",
-                "review-model", "calibrate", "approve-lessons", "repo-manager"}
+                "review-model", "calibrate", "approve-lessons"}
 MODEL_INVOKED = {"verify-physics", "cite-source", "credibility-record", "model-design",
                  "diagnosing-simulation", "interviewing", "learn-from-issue"}
 LINE_BUDGET = 120
@@ -67,7 +67,7 @@ def main():
         if d not in USER_INVOKED:
             continue
         for ln in p.read_text(encoding="utf-8").splitlines():
-            if re.search(r"suggest|ask the person|do not invoke" + (r"|SKILL\.md" if d == "repo-manager" else ""), ln, flags=re.I):  # the manager hands skill file paths to subagents; that is not a call
+            if re.search(r"suggest|ask the person|do not invoke", ln, flags=re.I):
                 continue
             for other in USER_INVOKED - {d}:
                 if re.search(rf"(?:`/?{other}`|/{other}\b)", ln):

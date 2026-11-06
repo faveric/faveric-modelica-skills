@@ -62,12 +62,8 @@ The shared language of these skills. Use these words exactly.
 
 **Parent issue** — the issue that owns Define and Conclude; it never builds. Its tasks are vertical slices (ADR-0020).
 
-**Task status** — where a task is in its life, in the task header: `ready-for-agent`, `ready-for-human`, `awaiting-approval`, `done`, `cancelled`. Only `implement` sets `done`, `awaiting-approval` and (on disapproval) `ready-for-agent`.
+**Awaiting approval** — a task whose gates passed but where a decision is left for the person (`status: awaiting-approval` in the task header). Otherwise a task is closed when its Done-when boxes are ticked.
 
-**Clear closure** — a task an agent may close alone: every named gate passed (none skipped, partial or assumed), credibility `verified`, no unreviewed assumption, nothing loosened or removed, no owner decision pending. Anything else waits for the person.
+**Issue branch** — the one branch of an issue (`branch`, `<issue-lower>-<slug>`), started from `main` or from the latest commit of the issue it starts from (`base`). The chain of bases is the **stack**.
 
-**Repo manager** — the `/repo-manager` skill: orders the open issues, runs one subagent per released task, relays the person's decisions and the pull requests. It does not build, close, review or conclude.
-
-**Issue branch** — the one branch of an issue (`<issue-lower>-<slug>`), started from `main` or from the latest commit of another issue (`base`). The chain of bases is the **stack**; pull requests are stacked and squash-merged.
-
-**Spin-off issue** — an issue found while building another (`discovered_from`), started from the parent's latest commit. The parent is **paused** until the spin-off concludes `met`, or the owner records `proceeds_without` or fails the parent.
+**Spin-off issue** — an issue found while building another. It is an ordinary issue whose `base` is the parent; the task it interrupts lists it in `blocked_by` and waits until it is concluded `met`.
