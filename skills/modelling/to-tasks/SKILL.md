@@ -15,7 +15,7 @@ disable-model-invocation: true
 
 **Create each task from the issue**, never by hand: `python3 tools/mlissue.py task <issue> <T-id> "<title>" [--builds-on <T-id>] --write` copies the header slice (model files, conditions, envelope, tolerances, sources, reference) and the five-section body from `templates/task.md`. With `--builds-on` it also sets `builds_on` and `blocked_by` and quotes the previous slice's Answer, credibility included, in the Model section. Then fill the Physical question and leave the other sections empty; the person runs the build later (suggest `/implement`). The title is `[ISSUE-001][T-005] <title>`.
 
-With a GitHub tracker, also add the label from `python3 tools/mlissue.py label <issue>` (create it if missing) and link the task as a sub-issue of the parent (`sub_issue_write` of the GitHub MCP server).
+With a GitHub tracker, also add the label from `python3 tools/mlissue.py label <issue>` (create it if missing) and link the task as a sub-issue of the parent (`sub_issue_write` of the GitHub MCP server). Set the GitHub issue type of every task to `Task` (`issue_types.task`), so a sub-issue is never mistaken for a parent Bug or Feature.
 
 The parent issue is the orchestrator: it keeps Define and Conclude and never builds. Before finishing: every check in the issue appears in some slice, every slice has a physical question and a comparison, no slice is bigger than one working session. Show the order.
 

@@ -20,6 +20,9 @@ ids:                         # defined once; to-tasks and tools/mlissue.py use t
   task: "T-{n:03d}"
   title: "[{issue}][{task}] {title}"
   label: "{issue_lower}"
+issue_types:                 # GitHub issue types (tracker kind github): parents are Bug or Feature, slices are Task
+  issue: [Bug, Feature]      # a model that is wrong or failed (recovery) = Bug; a new model or behaviour = Feature
+  task: Task
 docs: {glossary: GLOSSARY.md, adr: docs/adr, issues: docs/issues, records: records}
 work:                        # files produced while resolving issues and tasks (ADR-0022, templates/work-layout.md)
   root: .modelica-skills/work  # git-ignored; <root>/<ISSUE>/[<TASK>/]{data,reports,scripts,out}
