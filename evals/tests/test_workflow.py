@@ -477,5 +477,53 @@ class TestNaming(unittest.TestCase):
             self.assertEqual(specmod.load_spec(tasks / made[1])["blocked_by"], ["#2"])
 
 
+class TestNamingGuards(unittest.TestCase):
+    def run_cli(self, *argv):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = mlissue.main(list(argv))
+        return rc, out.getvalue(), err.getvalue()
+
+    def layout(self, t):
+        issues, tasks = Path(t) / "issues", Path(t) / "tasks"
+        issues.mkdir(), tasks.mkdir()
+        d = make_project(Path(t) / "p")
+        issue = issues / "00001 [ISSUE-001] - m.md"
+        shutil.copy2(d / "ISSUE.md", issue)
+        return issue, ["--dir", str(issues), "--tasks", str(tasks)], tasks
+
+    def test_builds_on_a_task_that_does_not_exist_is_refused_and_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as t:
+            issue, d, tasks = self.layout(t)
+            rc, _, err = self.run_cli("task", str(issue), "T-002", "Ice", "--builds-on", "T-001", "--write", *d)
+            self.assertNotEqual(rc, 0)
+            self.assertIn("T-001", err)
+            self.assertEqual(list(tasks.glob("*.md")), [])
+
+    def test_a_number_or_task_id_already_used_is_refused(self):
+        with tempfile.TemporaryDirectory() as t:
+            issue, d, tasks = self.layout(t)
+            self.assertEqual(self.run_cli("task", str(issue), "T-001", "Pressure drop", "--write", *d)[0], 0)
+            rc, _, err = self.run_cli("task", str(issue), "T-001", "Again", "--write", *d)
+            self.assertNotEqual(rc, 0)
+            self.assertIn("T-001", err)
+            rc, _, err = self.run_cli("new", "issue", "Other", "--number", "2", *d)  # 00002 is the task
+            self.assertNotEqual(rc, 0)
+            self.assertIn("2", err)
+            self.assertEqual(self.run_cli("new", "issue", "Other", "--number", "9", *d)[0], 0)
+
+    def test_the_file_name_must_agree_with_the_header(self):
+        with tempfile.TemporaryDirectory() as t:
+            p = Path(t) / "00003 [ISSUE-002] - x.md"
+            p.write_text("---\nid: ISSUE-001\ntitle: x\nlevel: L0\n---\n\n" + mlissue.BEGIN + "\n" + mlissue.END + "\n", encoding="utf-8")
+            mlissue.main(["summary", str(p), "--write"])
+            self.assertTrue(any("ISSUE-002" in f and "ISSUE-001" in f for f in mlissue.check(p)[0]))
+            tp = Path(t) / "00004 [ISSUE-001] [T-001] - y.md"
+            tp.write_text("---\nid: T-009\nissue: ISSUE-001\n---\n", encoding="utf-8")
+            self.assertTrue(any("T-001" in f and "T-009" in f for f in mlissue.check(tp)[0]))
+            tp.write_text("---\nid: T-001\nissue: ISSUE-001\nblocked_by: ['#4']\n---\n", encoding="utf-8")
+            self.assertTrue(any("itself" in f for f in mlissue.check(tp)[0]))
+
+
 if __name__ == "__main__":
     unittest.main()

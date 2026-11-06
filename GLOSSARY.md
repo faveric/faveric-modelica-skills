@@ -64,7 +64,7 @@ The shared language of these skills. Use these words exactly.
 
 **Awaiting approval** — a task whose gates passed but where a decision is left for the person (`status: awaiting-approval` in the task header). Otherwise a task is closed when its Done-when boxes are ticked.
 
-**Issue branch** — the one branch of an issue (`branch`, `<issue-lower>-<slug>`), started from `main` or from the latest commit of the issue it starts from (`base`). The chain of bases is the **stack**.
+**Issue branch** — the one branch of an issue (`branch`, `<issue-lower>-<slug>`), started from `main` or from the latest commit of another issue's branch. `base` in the issue header is `main` or that issue's id; the PR targets `main` or that issue's `branch`.
 
 **Spin-off issue** — an issue found while building another (a defect in the model it builds on). Its branch starts from the parent's branch; the interrupted task is blocked by it (`blocked_by: [#N]`) until it is closed. Only with a GitHub tracker.
 

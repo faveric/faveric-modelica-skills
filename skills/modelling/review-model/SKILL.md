@@ -18,6 +18,6 @@ Merge by severity: **claim is unsupported**, **blocks merge**, **should fix**, *
 
 **Learning (part of this skill, after the conclusion).** Run `learn-from-issue` for the issue. It only proposes candidates; suggest `/approve-lessons` to the person. Do not capture lessons any other way, and write nothing into the library yourself.
 
-**Pull request.** When the Outcome is `met` and `gh` is available, ask whether to open one. On yes, push the branch and run `gh pr create` with the issue's `base` as base and the conclusion's Answer as body. Never merge: the person does. Not on `missed`. If the base is another issue's branch (this issue was a spin-off), remind the person to close this issue after merging, so the task that waits for it can go on.
+**Pull request.** When the Outcome is `met` and `gh` is available, ask whether to open one. On yes, push the branch and run `gh pr create` with base `main`, or the `branch` of the issue named in `base`, and the conclusion's Answer as body. Never merge: the person does. Not on `missed`. If the base is another issue's branch (this issue was a spin-off), remind the person to close this issue after merging, so the task that waits for it can go on.
 
 Files: see [templates/work-layout.md](../../../templates/work-layout.md).

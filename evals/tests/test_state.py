@@ -46,7 +46,7 @@ class TestStages(StateCase):
 
     def test_bad_header_then_no_tasks(self):
         self.issue("no front matter here")
-        self.assertEqual(self.stage()["stage"], "header")
+        self.assertEqual((self.stage()["stage"], self.stage()["id"]), ("header", "ISSUE-001"))  # the id comes from the file name
         self.issue()
         s = self.stage()
         self.assertEqual((s["stage"], s["next"]), ("tasks", "/to-tasks"))
@@ -178,6 +178,28 @@ class TestOverview(Helpers, StateCase):
         out = mlstate.render(mlstate.state(self.d))
         self.assertIn("goal: fix the base", out)
         self.assertIn("waits: T-002 waits for #1", out)
+
+
+class TestLayout(StateCase):
+    def test_tasks_are_read_from_the_configured_folder(self):
+        (self.d / ".modelica-skills" / "config.yml").write_text("tracker: {kind: files, path: work/tasks}\n", encoding="utf-8")
+        (self.d / "work" / "tasks").mkdir(parents=True)
+        self.issue()
+        (self.d / "work" / "tasks" / "00002 [ISSUE-001] [T-001] - t.md").write_text(task("T-001", [False]), encoding="utf-8")
+        self.assertEqual((self.stage()["stage"], self.stage()["task"]), ("implement", "T-001"))
+        done = "---\nid: T-001\nissue: ISSUE-001\n---\n## Answer\n\n## Done when\n- [x] a\n"  # closed, but no Answer written
+        (self.d / "work" / "tasks" / "00002 [ISSUE-001] [T-001] - t.md").write_text(done, encoding="utf-8")
+        concl = (ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace(
+            "**Outcome: met | missed**, measured <value> vs target <value>", "**Outcome: met**, error 4% vs target 10%")
+        (self.d / "docs" / "issues" / "ISSUE-001-conclusion.md").write_text(concl, encoding="utf-8")
+        self.assertEqual(self.stage()["stage"], "review")  # can_close looked in the configured folder and saw the missing Answer
+
+    def test_a_file_that_is_not_named_like_an_issue_is_a_warning_not_an_issue(self):
+        self.issue()
+        (self.d / "docs" / "issues" / "README.md").write_text("notes", encoding="utf-8")
+        st = mlstate.state(self.d)
+        self.assertEqual([i["id"] for i in st["issues"]], ["ISSUE-001"])
+        self.assertTrue(any("README.md" in w for w in st["work_warnings"]))
 
 
 class TestWarnings(StateCase):

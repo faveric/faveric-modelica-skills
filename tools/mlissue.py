@@ -11,7 +11,7 @@
   python3 tools/mlissue.py history ISSUE-002 [--dir docs/issues]                   # every attempt ISSUE-002 follows, derived from the files
   python3 tools/mlissue.py can-close ISSUE-001 [--dir docs/issues]
 
-The id formats live in .modelica-skills/config.yml under `ids` (defaults below). The at-a-glance block between
+The id formats are the defaults below (the config's `ids` is for the skills' wording only). The at-a-glance block between
 the markers is generated from the machine-read header, so the readable summary cannot disagree with it.
 """
 import argparse, re, sys
@@ -226,22 +226,38 @@ def branch_problems(spec, issues_dir):
     return out
 
 
-def task_problems(spec, tasks_dir):
+def task_problems(spec, path, issues_dir=None):
     out, st = [], spec.get("status")
+    tasks_dir = Path(path).parent
+    issues_dir = issues_dir or tasks_dir.parent / "issues"
     if st and st not in TASK_STATUS:
         out.append(f"status {st!r} is not one of {', '.join(TASK_STATUS)}")
-    issues_dir = Path(tasks_dir).parent / "issues"
+    named = parse_name(Path(path).name)
+    if named and named[2] and (named[1], named[2]) != (str(spec.get("issue")), str(spec.get("id"))):
+        out.append(f"the file name says {named[1]} {named[2]} but the header says {spec.get('issue')} {spec.get('id')}")
     numbers = {n[0] for _, n in _named(tasks_dir, issues_dir)}
     for b in spec.get("blocked_by") or []:
         m = re.fullmatch(r"#(\d+)", str(b))
         if not m:
             out.append(f"blocked_by {b!r}: name the task or issue by its number, as #N")
+        elif named and int(m.group(1)) == named[0]:
+            out.append(f"blocked_by {b}: a task cannot wait for itself")
         elif int(m.group(1)) not in numbers:
             out.append(f"blocked_by {b}: no task or issue with that number in {tasks_dir} or {issues_dir}")
     return out
 
 
-def check(path):
+def used(number, issue_id, task_id, *dirs):
+    """Why a new file cannot take this number or task id, or None."""
+    for p, n in _named(*dirs):
+        if n[0] == number:
+            return f"number {number} is already used by {p.name}"
+        if task_id and (n[1], n[2]) == (issue_id, task_id):
+            return f"{task_id} already exists for {issue_id} ({p.name})"
+    return None
+
+
+def check(path, issues_dir=None):
     """(failures, warnings). Failures block saving; warnings must be listed under Open items."""
     fails, warns = [], []
     try:
@@ -249,8 +265,11 @@ def check(path):
     except Exception as e:  # header unparseable
         return [f"header does not parse: {e}"], []
     if "issue" in spec:  # a task file: its status and what it waits for
-        return task_problems(spec, Path(path).parent), []
-    fails += branch_problems(spec, Path(path).parent)
+        return task_problems(spec, path, issues_dir), []
+    named = parse_name(Path(path).name)
+    if named and named[2] is None and named[1] != str(spec.get("id")):
+        fails.append(f"the file name says {named[1]} but the header id is {spec.get('id')}")
+    fails += branch_problems(spec, issues_dir or Path(path).parent)
     env = {e["var"]: e for e in spec.get("envelope") or []}
     for s in spec.get("sources") or []:
         for v in s.get("validity") or []:
@@ -361,7 +380,7 @@ def main(argv=None):
         print(label(a.args[0]))
         return 0
     if a.cmd == "check":
-        fails, warns = check(a.args[0])
+        fails, warns = check(a.args[0], a.dir)
         for m in fails:
             print("FAIL:", m)
         for m in warns:
@@ -369,22 +388,33 @@ def main(argv=None):
         return 1 if fails else 0
     if a.cmd == "task":
         spec = load_spec(a.args[0])
-        prev = next((ans for tid, _, ans in task_answers(spec["id"], a.tasks) if tid == a.builds_on), "")
         title = " ".join(a.args[2:])
-        text = task_text(spec, a.args[1], title, a.builds_on, prev, task_number(spec["id"], a.builds_on, a.tasks) if a.builds_on else None)
+        number = a.number or next_number(a.dir, a.tasks)
+        bn = task_number(spec["id"], a.builds_on, a.tasks) if a.builds_on else None
+        problem = (f"--builds-on {a.builds_on}: no such task of {spec['id']} in {a.tasks}" if a.builds_on and bn is None
+                   else used(number, spec["id"], a.args[1], a.dir, a.tasks) if a.write else None)
+        if problem:
+            print(problem, file=sys.stderr)
+            return 2
+        prev = next((ans for tid, _, ans in task_answers(spec["id"], a.tasks) if tid == a.builds_on), "")
+        text = task_text(spec, a.args[1], title, a.builds_on, prev, bn)
         if not a.write:
             print(text)
             return 0
-        out = Path(a.tasks) / file_name(a.number or next_number(a.dir, a.tasks), spec["id"], a.args[1], title)
+        out = Path(a.tasks) / file_name(number, spec["id"], a.args[1], title)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text, encoding="utf-8")
         print(f"{out}: task written")
         return 0
     if a.cmd == "new":  # the path of the next issue or task file; the skill writes the content there
+        number = a.number or next_number(a.dir, a.tasks)
+        if problem := used(number, None, None, a.dir, a.tasks):
+            print(problem, file=sys.stderr)
+            return 2
         if a.args[0] == "issue":
-            print(Path(a.dir) / file_name(a.number or next_number(a.dir, a.tasks), next_issue_id(a.dir), None, " ".join(a.args[1:])))
+            print(Path(a.dir) / file_name(number, next_issue_id(a.dir), None, " ".join(a.args[1:])))
         else:
-            print(Path(a.tasks) / file_name(a.number or next_number(a.dir, a.tasks), a.args[1], next_task_id(a.args[1], a.tasks), " ".join(a.args[2:])))
+            print(Path(a.tasks) / file_name(number, a.args[1], next_task_id(a.args[1], a.tasks), " ".join(a.args[2:])))
         return 0
     if a.cmd == "history":
         ip = issue_file(a.dir, a.args[0])

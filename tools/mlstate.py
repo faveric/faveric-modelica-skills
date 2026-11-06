@@ -61,11 +61,15 @@ def blocker_text(blocker, tasks_by_number):
     return None if t["closed"] else f"{blocker} (open)"
 
 
+def tasks_dir(root, cfg):
+    return Path(root) / ((cfg.get("tracker") or {}).get("path") or "docs/tasks")
+
+
 def read_tasks(root, cfg):
     tr = cfg.get("tracker") or {"kind": "files", "path": "docs/tasks"}
     if tr.get("kind", "files") != "files":
         return None, tr.get("kind")
-    d = Path(root) / (tr.get("path") or "docs/tasks")
+    d = tasks_dir(root, cfg)
     tasks = []
     for p in sorted(d.glob("*.md")) if d.is_dir() else []:
         fm, body = _front(read_text(p))
@@ -85,13 +89,14 @@ def next_task(tasks, waits):
     return next((t for t in tasks if not t["closed"] and not waits(t)), None)
 
 
-def issue_state(root, path, tasks, tracker_kind, entries):
+def issue_state(root, path, tasks, tracker_kind, entries, tdir):
     out = {"file": path.relative_to(root).as_posix(), "id": None, "title": None, "stage": None, "next": None, "why": None,
            "blockers": [], "warnings": [], "waiting": [], "goal": None}
     try:
         spec = load_spec(path)
     except Exception as exc:  # noqa: BLE001 - any parse failure is the same finding
-        out.update(id=path.stem, stage="header", next="/to-issue", why=f"the header does not parse: {str(exc)[:80]}")
+        named = mlissue.parse_name(path.name)
+        out.update(id=named[1] if named else path.stem, stage="header", next="/to-issue", why=f"the header does not parse: {str(exc)[:80]}")
         return out
     out.update(id=str(spec.get("id") or path.stem), title=spec.get("title"), level=spec.get("level"), goal=spec.get("decision"))
     text = read_text(path)
@@ -104,7 +109,7 @@ def issue_state(root, path, tasks, tracker_kind, entries):
         return out
     mine = [t for t in tasks if t["issue"] == iid]
     idir = Path(root) / "docs" / "issues"
-    unconcluded = mlissue.can_close(iid, str(idir))  # problems found: no conclusion written yet
+    unconcluded = mlissue.can_close(iid, str(idir), tasks=tdir)  # problems found: no conclusion written yet
     if not mine and unconcluded:
         out.update(stage="tasks", next="/to-tasks", why="the issue has no tasks")
         return out
@@ -167,8 +172,12 @@ def state(root="."):
             pass
     idir = root / "docs" / "issues"
     for p in sorted(idir.glob("*.md")) if idir.is_dir() else []:
-        if not p.name.endswith(mlissue.SUFFIXES):
-            out["issues"].append(issue_state(root, p, tasks or [], tracker_kind, entries))
+        if p.name.endswith(mlissue.SUFFIXES):
+            continue
+        if not mlissue.parse_name(p.name):
+            out["work_warnings"].append(f"{p.relative_to(root).as_posix()} is not named like an issue (python3 tools/mlissue.py new issue \"<title>\")")
+            continue
+        out["issues"].append(issue_state(root, p, tasks or [], tracker_kind, entries, tasks_dir(root, cfg)))
     for rec in sorted((root / "records").glob("*.srmd.xml")) if (root / "records").is_dir() else []:
         try:
             stale = [m for s, m in mlrecord.check(rec, root) if m.startswith("G10")]
