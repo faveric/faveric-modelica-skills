@@ -21,6 +21,10 @@ ids:                         # defined once; to-tasks and tools/mlissue.py use t
   title: "[{issue}][{task}] {title}"
   label: "{issue_lower}"
 docs: {glossary: GLOSSARY.md, adr: docs/adr, issues: docs/issues, records: records}
+work:                        # files produced while resolving issues and tasks (ADR-0022, templates/work-layout.md)
+  root: .modelica-skills/work  # git-ignored; <root>/<ISSUE>/[<TASK>/]{data,reports,scripts,out}
+  subdirs: [data, reports, scripts, out]
+  engine_cwd: null           # null = the task's out/; set it if you have your own temp rules or a wrapper
 references: {manifest: refs/refs.bib, pdf: refs/pdf, transcriptions: refs/transcriptions}
 conventions: {units: SI, test_packages: [Examples, Validation]}
 media: {libraries: [], note: "each issue declares medium and reference state (ADR-0012)"}

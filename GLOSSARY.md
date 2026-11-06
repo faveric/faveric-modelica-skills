@@ -55,3 +55,7 @@ The shared language of these skills. Use these words exactly.
 **Base skills** — the domain-agnostic public skills in `skills/` applicable to any Modelica domain (electrical, mechanical, control, thermal, fluid).
 
 **Library overlay** — domain- and library-specific lessons and skills for the library the plugin is used on: notes in `.modelica-skills/learned/<skill>.md` and approved skills in `.claude/skills/`, with an append-only ledger and a generated index. Tracked in the library's repository, git-ignored in the public skills repository.
+
+**Work area** — the git-ignored folder (`work.root`, default `.modelica-skills/work/`) where files produced while resolving an issue or task live: auxiliary data, reports, scripts, engine output. Nothing in it is a deliverable (ADR-0022).
+
+**Promotion** — moving a file from the work area into the repository, allowed only when a committed artefact cites it, it reproduces a number in the record, or it is a reusable script with a header (ADR-0022).

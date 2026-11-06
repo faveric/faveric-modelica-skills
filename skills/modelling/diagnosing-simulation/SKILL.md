@@ -20,3 +20,5 @@ Do not change tolerances, solvers or start values at random. Read `.modelica-ski
 5. **Keep the failing case** as a regression model with stored results, and add a guard or gate check if one was missing. Re-run all checks (`G1`–`G10`). If the root cause is domain-specific to the target library, record it in the **library overlay** (`.modelica-skills/learned/`); if it is a general Modelica/DAE rule, promote it to the **base skills**.
 
 Report: how to reproduce, kind of problem, cause, fix, the check added, and what is still unexplained.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

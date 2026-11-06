@@ -13,3 +13,5 @@ Ask until you and the person understand the plan the same way.
 6. Keep a one-line log of each decision. Show it at the end, with the assumptions you made.
 
 If nobody can answer, take the most reasonable reading, say so at the top, and go on. Never decide alone: the intended-use level (L1), going beyond a source's valid range, loosening a tolerance, the fluid and reference state. List these as open and stop there.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

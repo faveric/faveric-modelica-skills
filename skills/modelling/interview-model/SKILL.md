@@ -25,3 +25,5 @@ Examples:
 Fuzzy words go into `GLOSSARY.md` at once. Hard-to-undo decisions get a one-page note in `docs/adr/`.
 
 Before finishing, recap the problem setup and ask user confirmation then suggest `/to-issue`.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

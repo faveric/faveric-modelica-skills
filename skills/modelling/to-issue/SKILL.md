@@ -19,3 +19,5 @@ A target is checked for feasibility against the physical limit (for example the 
 Then run `python3 tools/mlissue.py summary <issue> --write` (generates the tables from the header; never type them) and `python3 tools/mlissue.py check <issue>`. Fix every FAIL before saving. Copy every WARN into Open items.
 
 Save to the tracker or `docs/issues/<id>.md`. List open items. Suggest `/to-tasks`.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

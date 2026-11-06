@@ -15,4 +15,6 @@ Look in the repo first (`AGENTS.md`, `package.mo`, `scripts/*.mos`, `docs/`, `re
 7. **Ids.** Keep the `ids` formats of the template (`[ISSUE-001][T-005] <title>`, label `issue-001`) unless the repo has its own.
 8. **Tolerances.** Offer defaults (`G3_energy_balance_rel`, `G6a_reference_rel`); each issue sets its own.
 
-Write `.modelica-skills/config.yml` from `templates/config.yml`, add `refs/pdf/` to `.gitignore`, create the required folders (`.modelica-skills/learned/`), and call `engine_status` and `run_gates` (`engine=omc`) on the `modelica` MCP server bundled with the plugin and confirm they run cleanly; map its tools in `engine.tools` (`check`: `check_model`, `simulate`: `simulate`, `results`: `simulate`). Show the result and what is still unresolved.
+Write `.modelica-skills/config.yml` from `templates/config.yml`, add `refs/pdf/` and the `work.root` folder (default `.modelica-skills/work/`) to `.gitignore`, create the required folders (`.modelica-skills/learned/`, the work root), keep the `work:` key (`work.engine_cwd` only if the person has their own temp rules or a wrapper); re-running is safe and leaves tracked files alone, and call `engine_status` and `run_gates` (`engine=omc`) on the `modelica` MCP server bundled with the plugin and confirm they run cleanly; map its tools in `engine.tools` (`check`: `check_model`, `simulate`: `simulate`, `results`: `simulate`). Show the result and what is still unresolved.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

@@ -13,3 +13,5 @@ Run this in a subagent with a clean context (the learner), once per issue, after
 4. **Propose** with `python3 tools/mllearn.py propose --issue <id> --kind note|skill|proposal --target <name> --title "<one line>" --evidence E1,E2 --body-file -` (body on stdin). If the tool refuses, fix the text or drop the candidate.
 5. **Never** write to `.modelica-skills/learned/` or `.claude/skills/` by hand, run `approve`, or edit a skill of the plugin.
 6. **Report:** candidates (id, kind, target, title) or `NO_ENTRY`, and each owner flag with its evidence id. Suggest `/approve-lessons`.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

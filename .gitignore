@@ -2,6 +2,8 @@
 # Generated output
 # Local source material (copyright): keep the manifest, not the PDFs
 # Library-specific overlays (lessons and skills proposed by the learner; not committed to public base skills)
+# Work area of a target library (ADR-0022)
+**/.modelica-skills/work/
 # Python
 **/refs/pdf/
 **/.modelica-skills/learned/

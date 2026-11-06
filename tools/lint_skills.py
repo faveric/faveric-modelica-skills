@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lint skills: frontmatter, name = directory, description length, user-invoked rule, relative links, README coverage."""
+"""Lint skills: frontmatter, name = directory, description length, user-invoked rule, relative links, README coverage, work-area line."""
 import re, sys
 from pathlib import Path
 
@@ -9,6 +9,7 @@ USER_INVOKED = {"startsession", "setup-modelica-skills", "interview-model", "int
 MODEL_INVOKED = {"verify-physics", "cite-source", "credibility-record", "model-design",
                  "diagnosing-simulation", "interviewing", "learn-from-issue"}
 LINE_BUDGET = 120
+WORK_LINE = "Files: see [templates/work-layout.md](../../../templates/work-layout.md)."  # ADR-0022
 # Domain-agnostic terms the public skills must keep (moved from the retired evals/harness2.py, ADR-0018).
 INVARIANTS = {
     "diagnosing-simulation": ["structural singularity", "clockPartitioning", "Pantelides", "N=1", "bidirectional causality"],
@@ -79,6 +80,9 @@ def main():
         n = len(p.read_text(encoding="utf-8").splitlines())
         if n > LINE_BUDGET:
             errs.append(f"{p.relative_to(ROOT)}: {n} lines, over the budget of {LINE_BUDGET}")
+    for p in skills:
+        if WORK_LINE not in p.read_text(encoding="utf-8"):
+            errs.append(f"{p.relative_to(ROOT)}: missing the work-area line: {WORK_LINE}")
     for skill, terms in INVARIANTS.items():
         f = ROOT / "skills" / "modelling" / skill / "SKILL.md"
         text = f.read_text(encoding="utf-8").lower() if f.exists() else ""

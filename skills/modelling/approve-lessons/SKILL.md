@@ -13,3 +13,5 @@ Only a person approves. Do not approve on your own judgement, and never in the s
 5. `python3 tools/mllearn.py verify`. Report what entered the library, what was rejected, and any mismatch.
 
 A lesson later found wrong is retired, not deleted: `retire <id> --by "<name>" --reason "<why>"`.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

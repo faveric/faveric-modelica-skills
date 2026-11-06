@@ -18,3 +18,5 @@ disable-model-invocation: true
 With a GitHub tracker, also add the label from `python3 tools/mlissue.py label <issue>` (create it if missing) and link the task as a sub-issue of the parent (`sub_issue_write` of the GitHub MCP server).
 
 The parent issue is the orchestrator: it keeps Define and Conclude and never builds. Before finishing: every check in the issue appears in some slice, every slice has a physical question and a comparison, no slice is bigger than one working session. Show the order.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

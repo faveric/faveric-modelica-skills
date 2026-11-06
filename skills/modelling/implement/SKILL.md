@@ -23,3 +23,5 @@ For each task:
 Without an engine, run in **static-only mode** and mark engine gates `skip`. An engine result already in the record for unchanged files stays and is reported as kept, not recomputed; never delete it and never present it as rerun. Never use a number from memory: unread source means `TO-VERIFY` and `pending`.
 
 Finish with the summary: **passed / failed / skipped / needs a human decision**, one line of cause each, the record status; suggest `/review-model`. No raw gate output in the report.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

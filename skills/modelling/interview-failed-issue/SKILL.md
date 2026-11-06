@@ -22,3 +22,5 @@ Ask in this order:
 Write `docs/issues/<id>-failure.md` from `templates/failure.md`, at most one page. Never edit the closed issue or its conclusion. Say what you could not check.
 
 Finish by suggesting `/to-issue` (recover) or stating that no new issue is needed, then suggest `learn-from-issue` so the diagnosed cause and any tested negatives become candidates.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).

@@ -17,3 +17,5 @@ Merge by severity: **claim is unsupported**, **blocks merge**, **should fix**, *
 **If the Outcome is `missed`**, stop here and suggest `/interview-failed-issue`; the learner waits for the failure note.
 
 **Learning (after the conclusion).** Once the conclusion exists, run `learn-from-issue` for the issue in a subagent. It only proposes candidates; suggest `/approve-lessons` to the person. Do not capture lessons any other way, and write nothing into the library yourself.
+
+Files: see [templates/work-layout.md](../../../templates/work-layout.md).
