@@ -18,6 +18,6 @@ A target is checked for feasibility against the physical limit (for example the 
 
 Then run `python3 tools/mlissue.py summary <issue> --write` (generates the tables from the header; never type them) and `python3 tools/mlissue.py check <issue>`. Fix every FAIL before saving. Copy every WARN into Open items.
 
-Save to the tracker or `docs/issues/<id>.md`. List open items. Suggest `/to-tasks`.
+Save to the tracker or `docs/issues/<id>.md`. With a GitHub tracker, set the issue type to `Feature` (new model or behaviour) or `Bug` (a recovery issue, or a model known to be wrong); never `Task`, which is reserved for the sub-issues made by `/to-tasks`. If unclear, use `Feature` and list it in Open items. List open items. Suggest `/to-tasks`.
 
 Files: see [templates/work-layout.md](../../../templates/work-layout.md).
