@@ -365,5 +365,82 @@ class TestIssueHelpers(unittest.TestCase):
             self.assertEqual(mlissue.can_close("ISSUE-001", t), [])
 
 
+class TestBranchKeys(unittest.TestCase):
+    def write(self, d, iid, extra=""):
+        p = Path(d) / f"{iid}.md"
+        p.write_text(f"---\nid: {iid}\ntitle: t\nlevel: L0\n{extra}---\n\n{mlissue.BEGIN}\n{mlissue.END}\n", encoding="utf-8")
+        mlissue.main(["summary", str(p), "--write"])
+        return p
+
+    def test_standalone_issue_branches_from_main(self):
+        with tempfile.TemporaryDirectory() as t:
+            p = self.write(t, "ISSUE-001", "branch: issue-001-correlation\nbase: main\n")
+            self.assertEqual(mlissue.check(p)[0], [])
+
+    def test_branch_name_starts_with_the_issue_label(self):
+        with tempfile.TemporaryDirectory() as t:
+            p = self.write(t, "ISSUE-001", "branch: my-work\nbase: main\n")
+            self.assertTrue(any("branch" in f and "issue-001" in f for f in mlissue.check(p)[0]))
+
+    def test_base_is_main_or_an_existing_issue(self):
+        with tempfile.TemporaryDirectory() as t:
+            p = self.write(t, "ISSUE-002", "branch: issue-002-fix\nbase: ISSUE-001\n")
+            self.assertTrue(any("base ISSUE-001" in f for f in mlissue.check(p)[0]))
+            self.write(t, "ISSUE-001", "branch: issue-001-x\nbase: main\n")
+            self.assertEqual(mlissue.check(p)[0], [])
+
+    def test_issue_found_during_another_branches_from_it(self):
+        with tempfile.TemporaryDirectory() as t:
+            self.write(t, "ISSUE-001", "branch: issue-001-x\nbase: main\n")
+            p = self.write(t, "ISSUE-002", "branch: issue-002-fix\nbase: main\ndiscovered_from: ISSUE-001\n")
+            self.assertTrue(any("discovered_from" in f and "base" in f for f in mlissue.check(p)[0]))
+            p = self.write(t, "ISSUE-002", "branch: issue-002-fix\nbase: ISSUE-001\ndiscovered_from: ISSUE-001\n")
+            self.assertEqual(mlissue.check(p)[0], [])
+
+    def test_paused_issue_names_an_existing_issue(self):
+        with tempfile.TemporaryDirectory() as t:
+            p = self.write(t, "ISSUE-001", "branch: issue-001-x\nbase: main\npaused_for: ISSUE-002\n")
+            self.assertTrue(any("paused_for" in f for f in mlissue.check(p)[0]))
+
+    def test_task_status_must_be_known(self):
+        with tempfile.TemporaryDirectory() as t:
+            p = Path(t) / "T-001.md"
+            p.write_text("---\nid: T-001\nissue: ISSUE-001\nstatus: almost-done\n---\n", encoding="utf-8")
+            self.assertTrue(any("almost-done" in f for f in mlissue.check(p)[0]))
+            p.write_text("---\nid: T-001\nissue: ISSUE-001\nstatus: awaiting-approval\n---\n", encoding="utf-8")
+            self.assertEqual(mlissue.check(p)[0], [])
+
+
+class TestCanMerge(unittest.TestCase):
+    PLACEHOLDER = "**Outcome: met | missed**, measured <value> vs target <value>"
+
+    def project(self, t, outcome, status=None):
+        issues, tasks = Path(t) / "issues", Path(t) / "tasks"
+        issues.mkdir(), tasks.mkdir()
+        concl = (ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8")
+        (issues / "ISSUE-001-conclusion.md").write_text(concl.replace(self.PLACEHOLDER, f"**Outcome: {outcome}**, error 4% vs target 10%"), encoding="utf-8")
+        st = f"status: {status}\n" if status else ""
+        (tasks / "T-001.md").write_text(f"---\nid: T-001\nissue: ISSUE-001\n{st}---\n## Answer\ndp within 3%.\n", encoding="utf-8")
+        return issues
+
+    def test_met_conclusion_and_no_pending_approval_may_merge(self):
+        with tempfile.TemporaryDirectory() as t:
+            self.assertEqual(mlissue.can_merge("ISSUE-001", self.project(t, "met")), [])
+
+    def test_missed_outcome_does_not_merge(self):
+        with tempfile.TemporaryDirectory() as t:
+            self.assertTrue(any("missed" in m for m in mlissue.can_merge("ISSUE-001", self.project(t, "missed"))))
+
+    def test_task_awaiting_approval_does_not_merge(self):
+        with tempfile.TemporaryDirectory() as t:
+            self.assertTrue(any("T-001" in m and "approval" in m for m in mlissue.can_merge("ISSUE-001", self.project(t, "met", "awaiting-approval"))))
+
+    def test_no_conclusion_does_not_merge_and_cli_reports_it(self):
+        with tempfile.TemporaryDirectory() as t:
+            self.assertTrue(mlissue.can_merge("ISSUE-001", t))
+            self.assertEqual(mlissue.main(["can-merge", "ISSUE-001", "--dir", t]), 1)
+            self.assertEqual(mlissue.main(["can-merge", "ISSUE-001", "--dir", str(self.project(t, "met"))]), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

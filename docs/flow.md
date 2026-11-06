@@ -32,6 +32,10 @@ A system issue lists the components it uses and their record versions. If a comp
 
 `review-model` writes `docs/issues/<id>-conclusion.md`. Then `learn-from-issue` proposes at most three lessons or library skills from that issue's evidence, and `approve-lessons` lets a person approve, edit or reject each before it enters the library (ADR-0018).
 
+## Working an issue with the orchestrator
+
+`/issue-orchestrator` (ADR-0023) runs the ready tasks of an issue one subagent at a time on the issue's branch, closes a task on clear closure or hands it to the person (`awaiting-approval`), then runs one review and the conclusion for the whole issue. A defect found in the base pauses the issue (`paused_for`) and starts a fix issue from its latest commit; pull requests are stacked and squash-merged when `mlissue can-merge` passes.
+
 ## Accepting a gap
 
 A gate that cannot or should not run is listed by the owner in the issue (`accepted_gaps`, level L0). The record then reads "accepted with skipped gates" and the model cannot be called verified (ADR-0017).

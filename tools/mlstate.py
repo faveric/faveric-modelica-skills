@@ -4,12 +4,12 @@
   python3 tools/mlstate.py [--root .] [--json]
 
 Stages of an issue, first match wins: header (does not parse), tasks (none yet), implement (open tasks),
-review (all tasks closed, no conclusion), learn (conclusion, learner not run), approve (candidates waiting), done.
+approval (a task awaits the person), paused (waiting for a fix issue), review (all tasks closed, no conclusion), learn (conclusion, learner not run), approve (candidates waiting), done.
 A task is closed when its "Done when" checkboxes are all ticked. With a tracker other than files the tasks cannot be
 read here and the stage is "tracker". The `startsession` skill reads this and suggests the next command; it does not
 change anything.
 """
-import argparse, json, re, sys
+import argparse, json, re, subprocess, sys
 from pathlib import Path
 
 import yaml
@@ -58,7 +58,7 @@ def read_tasks(root, cfg):
         boxes = re.findall(r"^\s*-\s*\[([ xX])\]", _section(body, "Done when"), flags=re.M)
         question = _section(body, "Physical question")
         tasks.append({"id": str(fm.get("id") or p.stem), "issue": str(fm["issue"]), "file": p.relative_to(root).as_posix(),
-                      "blocked_by": [str(x) for x in fm.get("blocked_by") or []],
+                      "blocked_by": [str(x) for x in fm.get("blocked_by") or []], "status": fm.get("status"),
                       "closed": bool(boxes) and all(b.lower() == "x" for b in boxes),
                       "question": bool(question) and not PLACEHOLDER.match(question)})
     return tasks, None
@@ -87,6 +87,11 @@ def issue_state(root, path, tasks, tracker_kind, entries):
         if mlissue._replace(text, mlissue.summary_block(spec, path.parent)) != text:
             out["warnings"].append("the at-a-glance block is stale: run `python3 tools/mlissue.py summary <issue> --write`")
     iid = out["id"]
+    out.update(branch=spec.get("branch"), base=spec.get("base"))
+    pf = spec.get("paused_for")
+    if pf and mlissue.outcome(Path(root) / "docs" / "issues", str(pf))[0] != "met":
+        out.update(stage="paused", next=None, why=f"paused: waiting for {pf} to conclude with Outcome met, then resume on its corrected base")
+        return out
     if tracker_kind:
         out.update(stage="tracker", next=None, why=f"tasks live in the {tracker_kind} tracker; read them there and suggest the next one")
         return out
@@ -94,6 +99,14 @@ def issue_state(root, path, tasks, tracker_kind, entries):
     concl = mlissue.can_close(iid, str(Path(root) / "docs" / "issues"))
     if not mine and concl:
         out.update(stage="tasks", next="/to-tasks", why="the issue has no tasks")
+        return out
+    closed = {t["id"] for t in mine if t["closed"]}
+    out["ready"] = [t["id"] for t in mine if t["status"] == "ready-for-agent" and not t["closed"] and all(b in closed for b in t["blocked_by"])]
+    out["awaiting_approval"] = [t["id"] for t in mine if t["status"] == "awaiting-approval"]
+    out["warnings"] += [f"task {t['id']}: unknown status {t['status']!r} (use one of {', '.join(mlissue.TASK_STATUS)})"
+                        for t in mine if t["status"] and t["status"] not in mlissue.TASK_STATUS]
+    if out["awaiting_approval"]:
+        out.update(stage="approval", next=None, why=f"task {', '.join(out['awaiting_approval'])} awaits your approval: approve it to close it, or disapprove with feedback")
         return out
     nxt = next_task(mine)
     if nxt:
@@ -122,6 +135,15 @@ def issue_state(root, path, tasks, tracker_kind, entries):
     else:
         out.update(stage="done", next=None, why="conclusion written, learner ran, no candidate waiting")
     return out
+
+
+def current_branch(root):
+    """Name of the checked-out git branch, or None when root is not a repository or git is missing."""
+    try:
+        r = subprocess.run(["git", "-C", str(root), "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout.strip() or None if r.returncode == 0 else None
 
 
 def state(root="."):
@@ -160,8 +182,16 @@ def state(root="."):
             out["work_warnings"] += [f"script without header: {f}" for f, _ in wc["scripts_without_header"]]
         except Exception as exc:  # noqa: BLE001
             out["work_warnings"].append(f"work-area check failed: {str(exc)[:60]}")
+    heads = {i["id"]: i for i in out["issues"]}
+    for i in out["issues"]:
+        i["stack"], cur, seen = [i.get("branch") or i["id"]], i.get("base"), {i["id"]}
+        while cur and cur != "main" and cur in heads and cur not in seen:
+            seen.add(cur)
+            i["stack"].insert(0, heads[cur].get("branch") or cur)
+            cur = heads[cur].get("base")
+        i["stack"].insert(0, "main")
     if out["next"] is None:
-        active = [i for i in out["issues"] if i["stage"] != "done"]
+        active = [i for i in out["issues"] if i["stage"] not in ("done", "paused")] or [i for i in out["issues"] if i["stage"] != "done"]
         if not out["issues"]:
             out["next"] = {"command": "/interview-model", "why": "no issue yet: start a new piece of work"}
         elif active and active[0].get("next"):
@@ -170,6 +200,9 @@ def state(root="."):
             out["next"] = {"command": None, "issue": active[0]["id"], "why": active[0]["why"]}
         else:
             out["next"] = {"command": "/interview-model", "why": "every issue is done: start new work"}
+        cur = current_branch(root) if active else None
+        if cur and active[0].get("branch") and cur != active[0]["branch"] and active[0]["stage"] != "paused":
+            active[0]["warnings"].append(f"on branch {cur}, but {active[0]['id']} is worked on {active[0]['branch']} (stack: {' > '.join(active[0]['stack'])})")
     return out
 
 

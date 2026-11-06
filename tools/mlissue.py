@@ -9,6 +9,7 @@
   python3 tools/mlissue.py answers ISSUE-001 [--dir docs/issues]                   # the tasks' Answers, to build the conclusion from
   python3 tools/mlissue.py history ISSUE-002 [--dir docs/issues]                   # every attempt ISSUE-002 follows, derived from the files
   python3 tools/mlissue.py can-close ISSUE-001 [--dir docs/issues]
+  python3 tools/mlissue.py can-merge ISSUE-001 [--dir docs/issues]                 # closable, Outcome met, no task awaiting approval
 
 The id formats live in .modelica-skills/config.yml under `ids` (defaults below). The at-a-glance block between
 the markers is generated from the machine-read header, so the readable summary cannot disagree with it.
@@ -32,6 +33,7 @@ TEMPLATE = Path(__file__).resolve().parents[1] / "templates" / "task.md"
 SLICE = ("level", "model_files", "boundary_conditions", "initial_conditions", "reference_state", "feasibility",
          "fragile_spots", "acceptance", "baseline", "envelope", "tolerances", "sources")
 CONCLUSION_HEADINGS = ("## Answer", "## Results", "## Deviations", "## Accepted gaps", "## Open items", "## Out of scope")
+TASK_STATUS = ("ready-for-agent", "awaiting-approval")  # a task with no status is not released to an agent yet
 SUFFIXES = ("-conclusion.md", "-failure.md")  # files next to an issue that are not issues
 # hypothesis lines: "H2 [open] text" in a failure note; "ISSUE-001:H2 ruled-out evidence: ..." in a later conclusion
 HYP = re.compile(r"^\W*(H\d+)\s*\[(open|ruled-out|confirmed)\]\s*(.*)", re.M)
@@ -174,6 +176,25 @@ def _replace(text, block):
     return None if not m else text[: m.start()] + block + text[m.end():]
 
 
+def branch_problems(spec, issues_dir):
+    """One branch per issue (ADR-0023): named after the issue, started from main or from the issue it was found in."""
+    out, iid = [], str(spec.get("id"))
+    exists = lambda i: bool(i) and issue_file(issues_dir, str(i)) is not None
+    if spec.get("branch") and not str(spec["branch"]).startswith(label(iid) + "-"):
+        out.append(f"branch {spec['branch']!r} must start with {label(iid)}- (one branch per issue)")
+    base = spec.get("base")
+    if base and base != "main" and (base == iid or not exists(base)):
+        out.append(f"base {base} is neither main nor another issue in {issues_dir}")
+    found = spec.get("discovered_from")
+    if found and not exists(found):
+        out.append(f"discovered_from {found}: no such issue in {issues_dir}")
+    elif found and base != found:
+        out.append(f"discovered_from {found} needs base {found}: the new branch starts from that issue's latest commit")
+    if spec.get("paused_for") and not exists(spec["paused_for"]):
+        out.append(f"paused_for {spec['paused_for']}: no such issue in {issues_dir}")
+    return out
+
+
 def check(path):
     """(failures, warnings). Failures block saving; warnings must be listed under Open items."""
     fails, warns = [], []
@@ -181,6 +202,10 @@ def check(path):
         spec = load_spec(path)
     except Exception as e:  # header unparseable
         return [f"header does not parse: {e}"], []
+    if "issue" in spec:  # a task file: only its status is checked here
+        st = spec.get("status")
+        return ([f"status {st!r} is not one of {', '.join(TASK_STATUS)}"] if st and st not in TASK_STATUS else []), []
+    fails += branch_problems(spec, Path(path).parent)
     env = {e["var"]: e for e in spec.get("envelope") or []}
     for s in spec.get("sources") or []:
         for v in s.get("validity") or []:
@@ -273,9 +298,26 @@ def can_close(issue_id, directory="docs/issues", tasks=None):
     return out
 
 
+def can_merge(issue_id, directory="docs/issues", tasks=None):
+    """Why the issue's PR may not be merged yet (ADR-0023): closable, Outcome met, no task waiting for the person."""
+    out = can_close(issue_id, directory, tasks)
+    o = outcome(directory, issue_id)[0]
+    if not out and o != "met":
+        out.append(f"Outcome is {o}: do not merge; suggest /interview-failed-issue")
+    tdir = Path(tasks or Path(directory).parent / "tasks")
+    for p in sorted(tdir.glob("*.md")) if tdir.is_dir() else []:
+        try:
+            fm = yaml.safe_load(read_text(p).split("---", 2)[1]) or {}
+        except (IndexError, yaml.YAMLError):
+            continue
+        if isinstance(fm, dict) and str(fm.get("issue")) == issue_id and fm.get("status") == "awaiting-approval":
+            out.append(f"task {fm.get('id') or p.stem} awaits approval")
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["title", "label", "summary", "check", "task", "answers", "history", "can-close"])
+    ap.add_argument("cmd", choices=["title", "label", "summary", "check", "task", "answers", "history", "can-close", "can-merge"])
     ap.add_argument("args", nargs="+")
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--check", action="store_true")
@@ -321,6 +363,11 @@ def main(argv=None):
         problems = can_close(a.args[0], a.dir)
         for m in problems:
             print("BLOCKED:", m)
+        return 1 if problems else 0
+    if a.cmd == "can-merge":
+        problems = can_merge(a.args[0], a.dir)
+        for m in problems:
+            print("NOT MERGEABLE:", m)
         return 1 if problems else 0
     path = Path(a.args[0])
     block = summary_block(load_spec(path), path.parent)

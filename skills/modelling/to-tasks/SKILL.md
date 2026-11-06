@@ -17,6 +17,8 @@ disable-model-invocation: true
 
 With a GitHub tracker, also add the label from `python3 tools/mlissue.py label <issue>` (create it if missing) and link the task as a sub-issue of the parent (`sub_issue_write` of the GitHub MCP server). Set the GitHub issue type of every task to `Task` (`issue_types.task`), so a sub-issue is never mistaken for a parent Bug or Feature.
 
+Tasks start without a `status`; after the person agrees the plan, mark the ones to release `status: ready-for-agent` (the header key; a GitHub label of the same name with a GitHub tracker). Suggest `/issue-orchestrator`, which picks only those.
+
 The parent issue is the orchestrator: it keeps Define and Conclude and never builds. Before finishing: every check in the issue appears in some slice, every slice has a physical question and a comparison, no slice is bigger than one working session. Show the order.
 
 Files: see [templates/work-layout.md](../../../templates/work-layout.md).

@@ -10,7 +10,7 @@ A model can compile, simulate and close its energy balance and still be physical
 
 ## How it works
 
-Question session → issue → tasks → build one task at a time (check first) → review. Each stage ends with a quick consistency check. See [docs/flow.md](docs/flow.md).
+Question session → issue → tasks → build one task at a time (check first, the task closes with its Answer) → one review and conclusion per issue. Each stage ends with a quick consistency check. See [docs/flow.md](docs/flow.md).
 
 Two levels of use: **L0** rough comparison, **L1** design decision. Safety-critical use (L2) is out of scope.
 
@@ -33,7 +33,8 @@ You run these:
 - [to-tasks](skills/modelling/to-tasks/SKILL.md): split the issue into vertical slices, one behaviour each.
 - [interview-failed-issue](skills/modelling/interview-failed-issue/SKILL.md): diagnose a closed issue that missed its target; ends in recover, accept or stop.
 - [implement](skills/modelling/implement/SKILL.md): build a task, check first.
-- [review-model](skills/modelling/review-model/SKILL.md): independent review of a change.
+- [issue-orchestrator](skills/modelling/issue-orchestrator/SKILL.md): drive open issues with one subagent per task, a branch per issue and stacked PRs.
+- [review-model](skills/modelling/review-model/SKILL.md): independent review of an issue, then its conclusion (the orchestrator runs it when the last task closes).
 - [calibrate](skills/modelling/calibrate/SKILL.md): fit parameters without fooling yourself.
 - [approve-lessons](skills/modelling/approve-lessons/SKILL.md): approve, edit or reject what the learner proposed.
 

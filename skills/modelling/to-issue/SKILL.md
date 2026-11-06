@@ -16,7 +16,7 @@ The body holds only: the Overview (one paragraph written by a person: what is mo
 
 A target is checked for feasibility against the physical limit (for example the isentropic outlet state) before any tolerance is set around it. If it cannot be reached, set `reachable: false` and say so in Open items.
 
-Then run `python3 tools/mlissue.py summary <issue> --write` (generates the tables from the header; never type them) and `python3 tools/mlissue.py check <issue>`. Fix every FAIL before saving. Copy every WARN into Open items.
+Set `branch` (`<issue-lower>-<slug>`) and `base`: `main` for standalone work, or the id of the issue this one was found in (also `discovered_from`), in which case the branch starts from that issue's latest commit. Then run `python3 tools/mlissue.py summary <issue> --write` (generates the tables from the header; never type them) and `python3 tools/mlissue.py check <issue>`. Fix every FAIL before saving. Copy every WARN into Open items.
 
 Save to the tracker or `docs/issues/<id>.md`. With a GitHub tracker, set the issue type to `Feature` (new model or behaviour) or `Bug` (a recovery issue, or a model known to be wrong); never `Task`, which is reserved for the sub-issues made by `/to-tasks`. If unclear, use `Feature` and list it in Open items. List open items. Suggest `/to-tasks`.
 

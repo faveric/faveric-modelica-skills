@@ -1,10 +1,10 @@
 ---
 name: review-model
-description: Review a Modelica change in two independent passes (code standards, fidelity to the issue), check that the record does not claim more than the evidence, and conclude the issue when its last task is done, then hand over to the learner.
+description: Review a finished issue in two independent passes (code standards, fidelity to the issue), check that the record does not claim more than the evidence, and conclude the issue, then hand over to the learner.
 disable-model-invocation: true
 ---
 
-Review the changes since a fixed point (task start, commit, or branch base). Run two reviewers in parallel with clean context, then merge.
+Review the whole issue once, when its last task is closed: the changes since a fixed point (the issue's branch base). The orchestrator runs this by itself (ADR-0023); a person can run it by hand. Run two reviewers in parallel with clean context, then merge. A blocking finding reopens only the task whose commit introduced it (`status: ready-for-agent`, finding attached); the conclusion is written after a review with none.
 
 **Standards.** Input: diff, `model-design`, `GLOSSARY.md`. Units on every `Real`, no magic numbers, one idea per model, clear interfaces, range guards, tests in the right package, names from the glossary, no commented-out equations. Report file, line, rule.
 
