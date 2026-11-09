@@ -3,7 +3,7 @@ name: credibility-record
 description: Create and update the record that travels with a model: what it is for, its limits, which checks passed, and what status it may claim. Detects when the record is out of date.
 ---
 
-The record is an XML file in `records/` (template: `templates/credibility-record.srmd.xml`). The element names in the template are placeholders until checked against the official schema. Check it with the `check_record` MCP tool (CLI: `python3 tools/mlrecord.py check <record> --root <project>`).
+The record is an XML file in `records/` (template: `templates/credibility-record.srmd.xml`). The element names in the template are placeholders until checked against the official schema. Check it with the `check_record` MCP tool (CLI: `python3 "${CLAUDE_PLUGIN_ROOT}/tools/mlrecord.py" check <record> --root <project>`).
 
 **Required fields** (model name, supplier, confidentiality, release) plus: what the model is for, its limits in words, and the two status fields. Statuses use exact strings: "has not been verified" / "has been verified"; "has not been validated" / "has been validated" / "validated with limitations".
 
