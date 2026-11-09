@@ -8,6 +8,10 @@ Work from the task file alone (its header carries the conditions, ranges, source
 
 **Open the report with the task's physical question** (its "Physical question" section; ask the owner if it is missing). Gate output is read against that question, never instead of it.
 
+**Where you work.** With a GitHub tracker, on the issue's branch (`branch` in its header, made when the issue was written). If you are on another branch, stop and say so. Without GitHub you work one issue at a time, on the current branch.
+
+**A task that waits for approval or feedback.** If the task header says `status: awaiting-approval`, start by taking the person's answer. "Approved": tick the Done-when boxes, remove the status, close its GitHub sub-issue. Feedback: rework it as below.
+
 For each task:
 
 1. **Check first.** Write the regression/comparison case (covering nominal operation, conservation balances, and **bidirectional causality** or limit regimes) and run the checks the task names (`verify-physics`). They must fail first, and for the right reason.
@@ -18,10 +22,14 @@ For each task:
    - An unverified gate or an assumption goes in the Answer as "agent-recorded, unreviewed", with the reason. Promoting `partial` to `verified`, or the `accepted_gaps` entry the record reads, is the owner's decision; you may propose it.
 5. **Update the record once, at the end of the task**: `run_gates` with `write=true` (CLI `--write`), then `credibility-record`. Re-read your diff once: units on every `Real`, divisions or removable singularities that can reach zero, symmetric handling of through-flow reversal at ports, numbers without a source.
 6. **Commit** with the passed checks in the message.
-7. **Close the task by writing its Answer** (section `## Answer` of the task, at most 10 lines): the physical answer in numbers; what it was compared with and the deviation; credibility (`verified` | `partial` | `assumed`) with each unverified gate and assumption; what it may and may not be used for; commit hash. Post it as the closing comment. If this was the last task of the issue, suggest `/review-model`, which writes the conclusion.
+7. **Close the task.** Write its Answer (section `## Answer`, at most 10 lines): the physical answer in numbers; what it was compared with and the deviation; credibility (`verified` | `partial` | `assumed`) with each unverified gate and assumption; what it may and may not be used for; commit hash. Post it as the closing comment. **Clear closure** is two things: every named gate passed (none skipped, partial or assumed), and no decision left for the person (no unreviewed assumption, no tolerance loosened or guard removed, no L0 or L1, extrapolation or accepted-gap question). On clear closure tick the Done-when boxes and close its GitHub sub-issue. With any doubt set `status: awaiting-approval` in the task header, leave the boxes unticked and list the doubts in the Answer. No review is launched per task.
+
+**A defect in the model this issue builds on** (a bug or gap in code that existed before this issue, found while building): stop at this task. Write what is wrong, where and the evidence under `## Notes`, and offer the person a new issue for it. If they say to fix it inside this task, do that: their word is final. Otherwise make a `WIP:` commit on the issue's branch and suggest `/interview-model`, then `/to-issue`, for the new issue; that blocks this task on it. Without GitHub there are no spin-offs: fix it here, or stop and say so.
+
+**Rework** (feedback on a closed task, or a review finding): reopen it. Untick the Done-when boxes, reopen its GitHub sub-issue, write "Rework: <feedback>" as a comment there and under `## Notes` (the history), then run steps 1 to 7 again. If the issue already has a conclusion, refuse and say a new issue is needed.
 
 Without an engine, run in **static-only mode** and mark engine gates `skip`. An engine result already in the record for unchanged files stays and is reported as kept, not recomputed; never delete it and never present it as rerun. Never use a number from memory: unread source means `TO-VERIFY` and `pending`.
 
-Finish with the summary: **passed / failed / skipped / needs a human decision**, one line of cause each, the record status; suggest `/review-model`. No raw gate output in the report.
+Finish with the summary: **passed / failed / skipped / needs a human decision**, one line of cause each, the record status, the task status; then the next open task, or, when this was the last one, "issue complete": suggest `/review-model`. No raw gate output in the report.
 
 Files: see [templates/work-layout.md](../../../templates/work-layout.md).

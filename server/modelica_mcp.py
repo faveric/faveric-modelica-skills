@@ -68,8 +68,8 @@ def run_gates(root: str = ".", spec: str = "ISSUE.md", record: str | None = None
 
 @mcp.tool()
 def project_state(root: str = ".") -> dict:
-    """Where the work stands, derived from the files: per issue the stage (header, tasks, implement, review, learn,
-    approve, done), the next command, blockers and warnings, plus stale-record warnings. Read-only."""
+    """Where the work stands, derived from the files: per issue the stage (header, tracker, tasks, approval, implement,
+    review, failure, approve, learn, done; see tools/mlstate.py), the next command, blockers and warnings, plus stale-record warnings. Read-only."""
     return mlstate.state(root)
 
 

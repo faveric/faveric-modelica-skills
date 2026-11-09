@@ -10,7 +10,47 @@ A model can compile, simulate and close its energy balance and still be physical
 
 ## How it works
 
-Question session → issue → tasks → build one task at a time (check first) → review. Each stage ends with a quick consistency check. See [docs/flow.md](docs/flow.md).
+Question session → issue → tasks → build one task at a time (check first, the task closes with its Answer) → one review and conclusion per issue. Each stage ends with a quick consistency check. See [docs/flow.md](docs/flow.md).
+
+### Workflow
+
+Yellow boxes are where you decide. You run every step; `/startsession` shows where things stand and suggests one command.
+
+```mermaid
+flowchart TD
+    SS["/startsession: open issues, goals, what waits, one next command"] --> N{"New work?"}
+    N -- yes --> I["/interview-model"]
+    I --> TI["/to-issue: header, branch, base"]
+    TI --> TT["/to-tasks: slice plan agreed, tasks created"]
+    N -- "no, resume" --> IMP
+    TT --> IMP["/implement T-n: check first, build, gates, record, Answer, one commit"]
+    IMP --> CL{"All named gates passed<br/>and no decision left for you?"}
+    CL -- yes --> DONE["Done-when boxes ticked: task closed"]
+    CL -- doubt --> AW["status: awaiting-approval"]
+    AW --> PA{"You: approved, or feedback"}
+    PA -- approved --> DONE
+    PA -- feedback --> IMP
+    IMP -. "defect in the model it builds on<br/>(GitHub only)" .-> NI["New issue from this issue's branch;<br/>this task: blocked by #N"]
+    NI -.-> I
+    NI -. "#N closed: the task goes on" .-> IMP
+    DONE --> ALL{"Every task closed?"}
+    ALL -- no --> SS
+    ALL -- yes --> REV["/review-model: two reviewers, findings to you"]
+    REV --> RW{"You: rework, accept or conclude"}
+    RW -- rework --> IMP
+    RW -- conclude --> CON["Conclusion with Outcome"]
+    CON --> OUT{"Outcome"}
+    OUT -- met --> LRN["Learner proposes lessons"]
+    LRN --> PR["PR offered; you merge"]
+    OUT -- missed --> FI["/interview-failed-issue"]
+    FI --> DEC{"Decision"}
+    DEC -- recover --> TI
+    DEC -- "accept or stop" --> CLOSED["Closed without merge"]
+    classDef person fill:#fff3bf,stroke:#b08900,color:#000;
+    class N,AW,PA,RW,DEC person;
+```
+
+Without GitHub you work one issue at a time, with no branches. With a GitHub tracker each issue has a branch (one commit per task), tasks are sub-issues, and you merge the PR. A defect found in the model an issue builds on becomes a new issue that starts from the parent's branch after a `WIP:` commit; the interrupted task is blocked by it (`#N`) until it is closed. If the new issue missed, you choose: remove the blocker and go on, or abandon the parent by writing "abandoned" Answers on its open tasks so it can be concluded `missed`. A recovery issue starts from the failed issue's branch the same way.
 
 Two levels of use: **L0** rough comparison, **L1** design decision. Safety-critical use (L2) is out of scope.
 
@@ -26,14 +66,14 @@ The skills learn from the library they are used on, once per issue, and only wit
 
 You run these:
 
-- [startsession](skills/modelling/startsession/SKILL.md): start here; shows where the work stands and suggests the next command.
+- [startsession](skills/modelling/startsession/SKILL.md): start here; lists the open issues (goal, stage, what each waits for) and suggests the next command.
 - [setup-modelica-skills](skills/modelling/setup-modelica-skills/SKILL.md): once per repo; picks the simulation MCP server and where things live.
 - [interview-model](skills/modelling/interview-model/SKILL.md): questions that fix use, physics, ranges and sources.
 - [to-issue](skills/modelling/to-issue/SKILL.md): turn the conversation into an issue.
 - [to-tasks](skills/modelling/to-tasks/SKILL.md): split the issue into vertical slices, one behaviour each.
 - [interview-failed-issue](skills/modelling/interview-failed-issue/SKILL.md): diagnose a closed issue that missed its target; ends in recover, accept or stop.
 - [implement](skills/modelling/implement/SKILL.md): build a task, check first.
-- [review-model](skills/modelling/review-model/SKILL.md): independent review of a change.
+- [review-model](skills/modelling/review-model/SKILL.md): independent review of an issue, then its conclusion (run when the last task closes).
 - [calibrate](skills/modelling/calibrate/SKILL.md): fit parameters without fooling yourself.
 - [approve-lessons](skills/modelling/approve-lessons/SKILL.md): approve, edit or reject what the learner proposed.
 

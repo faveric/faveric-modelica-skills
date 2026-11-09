@@ -59,3 +59,13 @@ The shared language of these skills. Use these words exactly.
 **Work area** — the git-ignored folder (`work.root`, default `.modelica-skills/work/`) where files produced while resolving an issue or task live: auxiliary data, reports, scripts, engine output. Nothing in it is a deliverable (ADR-0022).
 
 **Promotion** — moving a file from the work area into the repository, allowed only when a committed artefact cites it, it reproduces a number in the record, or it is a reusable script with a header (ADR-0022).
+
+**Parent issue** — the issue that owns Define and Conclude; it never builds. Its tasks are vertical slices (ADR-0020).
+
+**Awaiting approval** — a task whose gates passed but where a decision is left for the person (`status: awaiting-approval` in the task header). Otherwise a task is closed when its Done-when boxes are ticked.
+
+**Issue branch** — the one branch of an issue (`branch`, `<issue-lower>-<slug>`), started from `main` or from the latest commit of another issue's branch. `base` in the issue header is `main` or that issue's id; the PR targets `main` or that issue's `branch`.
+
+**Spin-off issue** — an issue found while building another (a defect in the model it builds on). Its branch starts from the parent's branch; the interrupted task is blocked by it (`blocked_by: [#N]`) until it is closed. Only with a GitHub tracker.
+
+**Tracker numbers** — a task or issue is named `#N`: GitHub's number, or, with files, the running number at the start of its file name (`00002 [ISSUE-001] [T-001] - title.md`).

@@ -316,10 +316,10 @@ class TestIssueHelpers(unittest.TestCase):
             head = specmod.load_spec(tasks / "T-001-pressure-drop.md")
             self.assertEqual((head["id"], head["issue"], head["envelope"]), ("T-001", specmod.load_spec(d / "ISSUE.md")["id"],
                                                                            specmod.load_spec(d / "ISSUE.md")["envelope"]))
-            nxt = mlissue.task_text(specmod.load_spec(d / "ISSUE.md"), "T-002", "Ice", "T-001", "dp within 3%.")
+            nxt = mlissue.task_text(specmod.load_spec(d / "ISSUE.md"), "T-002", "Ice", "T-001", "dp within 3%.", builds_on_number=1)
             (tasks / "T-002-ice.md").write_text(nxt, encoding="utf-8")
             h2 = specmod.load_spec(tasks / "T-002-ice.md")
-            self.assertEqual((h2["builds_on"], h2["blocked_by"]), ("T-001", ["T-001"]))
+            self.assertEqual((h2["builds_on"], h2["blocked_by"]), ("T-001", ["#1"]))
             self.assertIn("> dp within 3%.", nxt)
             (tasks / "T-002-ice.md").unlink()
             (issues / f"{head['issue']}-conclusion.md").write_text((ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace("**Outcome: met | missed**, measured <value> vs target <value>", "**Outcome: met**, error 4% vs target 10%"), encoding="utf-8")
@@ -334,12 +334,12 @@ class TestIssueHelpers(unittest.TestCase):
             d = Path(t)
             self.assertTrue(any("Outcome" in m for m in (d.joinpath("ISSUE-001-conclusion.md").write_text(concl, encoding="utf-8"),
                                                           mlissue.can_close("ISSUE-001", d))[1]))  # placeholder is not an outcome
-            (d / "ISSUE-001.md").write_text("---\nid: ISSUE-001\ntitle: first try\nlevel: L0\n---\n", encoding="utf-8")
+            (d / "00001 [ISSUE-001] - first try.md").write_text("---\nid: ISSUE-001\ntitle: first try\nlevel: L0\n---\n", encoding="utf-8")
             (d / "ISSUE-001-conclusion.md").write_text(concl.replace(placeholder, "**Outcome: missed**, error 30% vs target 10%"), encoding="utf-8")
             self.assertEqual((mlissue.outcome(d, "ISSUE-001")[0], mlissue.can_close("ISSUE-001", d)), ("missed", []))
             (d / "ISSUE-001-failure.md").write_text("# f\n\n## Cause bucket\nmodel, suspected\n\n## Hypotheses\n"
                                                     "- H1 [open] correlation out of range\n- H2 [open] data bias\n\n## Decision\nrecover\n", encoding="utf-8")
-            p = d / "ISSUE-002.md"
+            p = d / "00002 [ISSUE-002] - second try.md"
             p.write_text("---\nid: ISSUE-002\ntitle: second try\nlevel: L0\nfollows: ISSUE-001\n"
                          "baseline: {metric: err, value: 0.3, target: 0.1}\n---\n" f"\n{mlissue.BEGIN}\n{mlissue.END}\n", encoding="utf-8")
             (d / "ISSUE-002-conclusion.md").write_text(
@@ -363,6 +363,166 @@ class TestIssueHelpers(unittest.TestCase):
             self.assertTrue(mlissue.can_close("ISSUE-001", t))
             (Path(t) / "ISSUE-001-conclusion.md").write_text((ROOT / "templates" / "conclusion.md").read_text(encoding="utf-8").replace("**Outcome: met | missed**, measured <value> vs target <value>", "**Outcome: met**, error 4% vs target 10%"), encoding="utf-8")
             self.assertEqual(mlissue.can_close("ISSUE-001", t), [])
+
+
+class TestBranchKeys(unittest.TestCase):
+    def write(self, d, iid, extra=""):
+        p = Path(d) / f"{int(iid.split('-')[1]):05d} [{iid}] - t.md"
+        p.write_text(f"---\nid: {iid}\ntitle: t\nlevel: L0\n{extra}---\n\n{mlissue.BEGIN}\n{mlissue.END}\n", encoding="utf-8")
+        mlissue.main(["summary", str(p), "--write"])
+        return p
+
+    def test_standalone_issue_branches_from_main(self):
+        with tempfile.TemporaryDirectory() as t:
+            p = self.write(t, "ISSUE-001", "branch: issue-001-correlation\nbase: main\n")
+            self.assertEqual(mlissue.check(p)[0], [])
+
+    def test_branch_name_starts_with_the_issue_label(self):
+        with tempfile.TemporaryDirectory() as t:
+            p = self.write(t, "ISSUE-001", "branch: my-work\nbase: main\n")
+            self.assertTrue(any("branch" in f and "issue-001" in f for f in mlissue.check(p)[0]))
+
+    def test_base_is_main_or_an_existing_issue(self):
+        with tempfile.TemporaryDirectory() as t:
+            p = self.write(t, "ISSUE-002", "branch: issue-002-fix\nbase: ISSUE-001\n")
+            self.assertTrue(any("base ISSUE-001" in f for f in mlissue.check(p)[0]))
+            self.write(t, "ISSUE-001", "branch: issue-001-x\nbase: main\n")
+            self.assertEqual(mlissue.check(p)[0], [])
+
+    def test_task_status_must_be_known(self):
+        with tempfile.TemporaryDirectory() as t:
+            p = Path(t) / "T-001.md"
+            p.write_text("---\nid: T-001\nissue: ISSUE-001\nstatus: almost-done\n---\n", encoding="utf-8")
+            self.assertTrue(any("almost-done" in f for f in mlissue.check(p)[0]))
+            p.write_text("---\nid: T-001\nissue: ISSUE-001\nstatus: awaiting-approval\n---\n", encoding="utf-8")
+            self.assertEqual(mlissue.check(p)[0], [])
+
+
+class TestBlockedBy(unittest.TestCase):
+    def layout(self, t):
+        issues, tasks = Path(t) / "issues", Path(t) / "tasks"
+        issues.mkdir(), tasks.mkdir()
+        (tasks / "00001 [ISSUE-001] [T-001] - a.md").write_text("---\nid: T-001\nissue: ISSUE-001\n---\n", encoding="utf-8")
+        (issues / "00007 [ISSUE-002] - x.md").write_text("---\nid: ISSUE-002\ntitle: x\nlevel: L0\n---\n", encoding="utf-8")
+        return tasks
+
+    def task(self, tasks, blocked):
+        p = tasks / "00002 [ISSUE-001] [T-002] - b.md"
+        p.write_text(f"---\nid: T-002\nissue: ISSUE-001\nblocked_by: {blocked}\n---\n", encoding="utf-8")
+        return p
+
+    def test_blocked_by_names_a_task_or_an_issue_by_number(self):
+        with tempfile.TemporaryDirectory() as t:
+            tasks = self.layout(t)
+            self.assertEqual(mlissue.check(self.task(tasks, "['#1']"))[0], [])
+            self.assertEqual(mlissue.check(self.task(tasks, "['#7']"))[0], [])  # a spin-off issue
+
+    def test_a_reference_that_resolves_to_nothing_is_refused(self):
+        with tempfile.TemporaryDirectory() as t:
+            tasks = self.layout(t)
+            self.assertTrue(any("#9" in f for f in mlissue.check(self.task(tasks, "['#9']"))[0]))
+            self.assertTrue(any("T-001" in f and "#N" in f for f in mlissue.check(self.task(tasks, "['T-001']"))[0]))
+
+
+class TestNaming(unittest.TestCase):
+    def test_file_names_carry_number_issue_task_and_title(self):
+        self.assertEqual(mlissue.file_name(1, "ISSUE-001", None, "Heat Exchanger Model"), "00001 [ISSUE-001] - Heat Exchanger Model.md")
+        self.assertEqual(mlissue.file_name(2, "ISSUE-001", "T-001", 'Heat: transfer/model?'), "00002 [ISSUE-001] [T-001] - Heat transfer model.md")
+        self.assertEqual(mlissue.parse_name("00002 [ISSUE-001] [T-001] - x.md"), (2, "ISSUE-001", "T-001"))
+        self.assertEqual(mlissue.parse_name("00001 [ISSUE-001] - x.md"), (1, "ISSUE-001", None))
+        self.assertIsNone(mlissue.parse_name("ISSUE-001-conclusion.md"))
+
+    def test_the_next_number_spans_issues_and_tasks(self):
+        with tempfile.TemporaryDirectory() as t:
+            issues, tasks = Path(t) / "issues", Path(t) / "tasks"
+            issues.mkdir(), tasks.mkdir()
+            self.assertEqual(mlissue.next_number(issues, tasks), 1)
+            (issues / "00001 [ISSUE-001] - a.md").write_text("", encoding="utf-8")
+            (tasks / "00004 [ISSUE-001] [T-001] - b.md").write_text("", encoding="utf-8")
+            self.assertEqual(mlissue.next_number(issues, tasks), 5)
+
+    def test_an_issue_is_found_by_its_id_and_a_conclusion_is_not_an_issue(self):
+        with tempfile.TemporaryDirectory() as t:
+            (Path(t) / "00003 [ISSUE-002] - fix.md").write_text("", encoding="utf-8")
+            (Path(t) / "ISSUE-002-conclusion.md").write_text("", encoding="utf-8")
+            self.assertEqual(mlissue.issue_file(t, "ISSUE-002").name, "00003 [ISSUE-002] - fix.md")
+            self.assertIsNone(mlissue.issue_file(t, "ISSUE-009"))
+
+    def test_a_github_number_replaces_the_next_local_one(self):
+        out = io.StringIO()
+        with tempfile.TemporaryDirectory() as t:
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(mlissue.main(["new", "issue", "Fix base", "--number", "14", "--dir", t, "--tasks", t]), 0)
+        self.assertTrue(out.getvalue().strip().endswith("00014 [ISSUE-001] - Fix base.md"))
+
+    def test_new_names_the_next_issue_and_task_and_task_writes_there(self):
+        def run(*argv):
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(mlissue.main(list(argv)), 0)
+            return out.getvalue().strip()
+        with tempfile.TemporaryDirectory() as t:
+            issues, tasks = Path(t) / "issues", Path(t) / "tasks"
+            issues.mkdir(), tasks.mkdir()
+            d = ["--dir", str(issues), "--tasks", str(tasks)]
+            first = run("new", "issue", "Heat Exchanger", *d)
+            self.assertTrue(first.endswith("00001 [ISSUE-001] - Heat Exchanger.md"))
+            project = make_project(Path(t) / "p")
+            shutil.copy2(project / "ISSUE.md", Path(first))  # the issue file the skill would write
+            self.assertTrue(run("new", "task", "ISSUE-001", "Pressure drop", *d).endswith("00002 [ISSUE-001] [T-001] - Pressure drop.md"))
+            run("task", first, "T-001", "Pressure drop", "--write", *d)
+            run("task", first, "T-002", "Ice", "--builds-on", "T-001", "--write", *d)
+            made = sorted(p.name for p in tasks.glob("*.md"))
+            self.assertEqual(made, ["00002 [ISSUE-001] [T-001] - Pressure drop.md", "00003 [ISSUE-001] [T-002] - Ice.md"])
+            self.assertEqual(specmod.load_spec(tasks / made[1])["blocked_by"], ["#2"])
+
+
+class TestNamingGuards(unittest.TestCase):
+    def run_cli(self, *argv):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = mlissue.main(list(argv))
+        return rc, out.getvalue(), err.getvalue()
+
+    def layout(self, t):
+        issues, tasks = Path(t) / "issues", Path(t) / "tasks"
+        issues.mkdir(), tasks.mkdir()
+        d = make_project(Path(t) / "p")
+        issue = issues / "00001 [ISSUE-001] - m.md"
+        shutil.copy2(d / "ISSUE.md", issue)
+        return issue, ["--dir", str(issues), "--tasks", str(tasks)], tasks
+
+    def test_builds_on_a_task_that_does_not_exist_is_refused_and_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as t:
+            issue, d, tasks = self.layout(t)
+            rc, _, err = self.run_cli("task", str(issue), "T-002", "Ice", "--builds-on", "T-001", "--write", *d)
+            self.assertNotEqual(rc, 0)
+            self.assertIn("T-001", err)
+            self.assertEqual(list(tasks.glob("*.md")), [])
+
+    def test_a_number_or_task_id_already_used_is_refused(self):
+        with tempfile.TemporaryDirectory() as t:
+            issue, d, tasks = self.layout(t)
+            self.assertEqual(self.run_cli("task", str(issue), "T-001", "Pressure drop", "--write", *d)[0], 0)
+            rc, _, err = self.run_cli("task", str(issue), "T-001", "Again", "--write", *d)
+            self.assertNotEqual(rc, 0)
+            self.assertIn("T-001", err)
+            rc, _, err = self.run_cli("new", "issue", "Other", "--number", "2", *d)  # 00002 is the task
+            self.assertNotEqual(rc, 0)
+            self.assertIn("2", err)
+            self.assertEqual(self.run_cli("new", "issue", "Other", "--number", "9", *d)[0], 0)
+
+    def test_the_file_name_must_agree_with_the_header(self):
+        with tempfile.TemporaryDirectory() as t:
+            p = Path(t) / "00003 [ISSUE-002] - x.md"
+            p.write_text("---\nid: ISSUE-001\ntitle: x\nlevel: L0\n---\n\n" + mlissue.BEGIN + "\n" + mlissue.END + "\n", encoding="utf-8")
+            mlissue.main(["summary", str(p), "--write"])
+            self.assertTrue(any("ISSUE-002" in f and "ISSUE-001" in f for f in mlissue.check(p)[0]))
+            tp = Path(t) / "00004 [ISSUE-001] [T-001] - y.md"
+            tp.write_text("---\nid: T-009\nissue: ISSUE-001\n---\n", encoding="utf-8")
+            self.assertTrue(any("T-001" in f and "T-009" in f for f in mlissue.check(tp)[0]))
+            tp.write_text("---\nid: T-001\nissue: ISSUE-001\nblocked_by: ['#4']\n---\n", encoding="utf-8")
+            self.assertTrue(any("itself" in f for f in mlissue.check(tp)[0]))
 
 
 if __name__ == "__main__":

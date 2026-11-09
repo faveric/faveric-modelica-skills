@@ -1,6 +1,6 @@
 # <ISSUE-000> conclusion
 
-Written by the orchestrator when the last task of the issue closes. `python3 tools/mlissue.py answers <ISSUE-000>` lists the tasks' Answers to build from. `python3 tools/mlissue.py can-close <ISSUE-000>` blocks closing the issue until this file has all six sections, the Answer carries an Outcome line with the measured number, and every task has written its Answer.
+Written by `review-model` for the parent issue when the last task of the issue closes. `python3 tools/mlissue.py answers <ISSUE-000>` lists the tasks' Answers to build from. `python3 tools/mlissue.py can-close <ISSUE-000>` blocks closing the issue until this file has all six sections, the Answer carries an Outcome line with the measured number, and every task has written its Answer.
 
 ## Answer
 At most 10 lines. First line: **Outcome: met | missed**, measured <value> vs target <value>, against <reference and range>. Then the decision from the issue; the result in numbers; **credibility: verified | partial | assumed**; whether the model may be used for the decision (at L1, `partial` means usable at L0 only until a person signs it off). A `missed` close is normal and honest; the next step is `/interview-failed-issue`.

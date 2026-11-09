@@ -22,12 +22,12 @@ class LearnerCase(unittest.TestCase):
         (self.d / "src").mkdir()
         git(self.d, "init", "-q")
         (self.d / "src" / "M.mo").write_text("model M\n  assert(x > 0, \"m\");\nend M;\n", encoding="utf-8")
-        (self.d / "docs" / "issues" / "ISSUE-001.md").write_text(
+        (self.d / "docs" / "issues" / "00001 [ISSUE-001] - t.md").write_text(
             "---\nid: ISSUE-001\nlevel: L0\nmodel_files: [src/M.mo]\ntolerances:\n  G3_energy_balance_rel: 1.0e-9\n"
             "accepted_gaps:\n  - {gate: G5, owner: o, date: 2026-01-01, reason: guard is a function}\n---\n", encoding="utf-8")
         git(self.d, "add", "-A"); git(self.d, "commit", "-q", "-m", "[ISSUE-001][T-001] first model")
         (self.d / "src" / "M.mo").write_text("model M\nend M;\n", encoding="utf-8")
-        p = self.d / "docs" / "issues" / "ISSUE-001.md"
+        p = self.d / "docs" / "issues" / "00001 [ISSUE-001] - t.md"
         p.write_text(p.read_text(encoding="utf-8").replace("1.0e-9", "1.0e-6"), encoding="utf-8")
         git(self.d, "add", "-A"); git(self.d, "commit", "-q", "-m", "[ISSUE-001][T-002] relax")
         (self.d / ".modelica-skills").mkdir()
