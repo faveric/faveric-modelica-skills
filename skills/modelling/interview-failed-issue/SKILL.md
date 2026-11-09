@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 Follow the `interviewing` rules. Read-only on the work: write no model code, run no simulation, edit no closed issue. Only the failure note is written.
 
-**Start from the failure, not from zero.** Read `docs/issues/<id>-conclusion.md`, the tasks' Answers (`python3 tools/mlissue.py answers <id>`), the record, the gate results and, for a recovery issue, the earlier attempts (`python3 tools/mlissue.py history <id>`). Facts that need searching go to a subagent; do not ask the person for what the files hold.
+**Start from the failure, not from zero.** Read `docs/issues/<id>-conclusion.md`, the tasks' Answers (`python3 "${CLAUDE_PLUGIN_ROOT}/tools/mlissue.py" answers <id>`), the record, the gate results and, for a recovery issue, the earlier attempts (`python3 "${CLAUDE_PLUGIN_ROOT}/tools/mlissue.py" history <id>`). Facts that need searching go to a subagent; do not ask the person for what the files hold.
 
 Ask in this order:
 

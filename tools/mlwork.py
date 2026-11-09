@@ -62,7 +62,7 @@ def allowed_roots(root):
 def _git_untracked(root):
     try:
         r = subprocess.run(["git", "-C", str(root), "ls-files", "--others", "--exclude-standard"], capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=30)
+                           stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace", timeout=30)
     except (OSError, subprocess.SubprocessError):
         return None
     return r.stdout.splitlines() if r.returncode == 0 else None
