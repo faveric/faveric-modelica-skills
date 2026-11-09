@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 This is a router, not a driver. It reads the state of the work from the files and says what comes next. The state is derived every time; nothing is stored.
 
-1. **Read the state.** Call `project_state` on the `modelica` MCP server (CLI: `python3 tools/mlstate.py`). It gives, per issue, the stage, the next command, blockers and warnings, and any stale record.
+1. **Read the state.** Call `project_state` on the `modelica` MCP server (CLI: `python3 "${CLAUDE_PLUGIN_ROOT}/tools/mlstate.py" --root .`; the project has no `tools/` of its own). If the call does not answer within a few seconds, do not wait: use the CLI, and if that fails too, read the files by hand (see the end). It gives, per issue, the stage, the next command, blockers and warnings, and any stale record.
 2. **Show it in at most six lines:** configured or not; each issue with its stage and open tasks; blockers; warnings (stale record, stale at-a-glance block, stray files outside the work area); what is waiting for the person (candidates to approve).
 3. **Ask one question.** Resume the open work, or start something new: a new model, a change to an existing one, a calibration, or a model that does not run. Ask nothing else yet.
 4. **Suggest exactly one next command, with why**, and what to check when it ends:

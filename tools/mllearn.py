@@ -94,7 +94,7 @@ def _ledger(root, action, entry_id, by, **extra):
 
 def _git(root, *args):
     try:
-        r = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+        r = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace", timeout=60)
     except (OSError, subprocess.SubprocessError):
         return None
     return r.stdout if r.returncode == 0 else None
